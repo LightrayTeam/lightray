@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 tch = "0.1.1"
-actix = "0.8"
+actix-web = "1.0.9"
+listenfd = "0.3"
