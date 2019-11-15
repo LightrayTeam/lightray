@@ -10,3 +10,5 @@ edition = "2018"
 tch = "0.1.1"
 actix-web = "1.0.9"
 listenfd = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
