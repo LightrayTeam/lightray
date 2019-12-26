@@ -16,8 +16,9 @@ pub enum SerializableIValue {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TorchScriptInput {
-    positional_arguments: Vec<SerializableIValue>,
+    pub positional_arguments: Vec<SerializableIValue>,
 }
+
 impl PartialEq for TorchScriptInput {
     fn eq(&self, other: &TorchScriptInput) -> bool {
         if self.positional_arguments.len() != other.positional_arguments.len() {
@@ -35,8 +36,8 @@ impl PartialEq for TorchScriptInput {
     }
 }
 pub struct TorchScriptGraph {
-    batchable: bool,
-    module: tch::CModule,
+    pub batchable: bool,
+    pub module: tch::CModule,
 }
 
 impl TorchScriptGraph {

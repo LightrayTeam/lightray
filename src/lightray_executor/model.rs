@@ -22,8 +22,8 @@ impl LightrayModel {
         return LightrayModel {
             id: id,
             samples: samples,
-            executor: executor,
             verified: false,
+            executor: executor,
         };
     }
     pub fn verify(&self) -> Result<(), LightrayModelVerificationError> {
