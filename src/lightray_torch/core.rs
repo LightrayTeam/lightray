@@ -1,9 +1,10 @@
+use crate::lightray_torch::errors::InternalTorchError;
 use failure::Fallible;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use tch::IValue;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-enum SerializableIValue {
+pub enum SerializableIValue {
     None,
     Bool(bool),
     Int(i64),
@@ -14,7 +15,7 @@ enum SerializableIValue {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TorchScriptInput {
+pub struct TorchScriptInput {
     positional_arguments: Vec<SerializableIValue>,
 }
 impl PartialEq for TorchScriptInput {
@@ -33,23 +34,33 @@ impl PartialEq for TorchScriptInput {
         !self.eq(other)
     }
 }
-struct TorchScriptGraph {
+pub struct TorchScriptGraph {
     batchable: bool,
     module: tch::CModule,
 }
 
 impl TorchScriptGraph {
-    pub fn forward(&self, inputs: &TorchScriptInput) -> Fallible<SerializableIValue> {
+    pub fn forward(
+        &self,
+        inputs: &TorchScriptInput,
+    ) -> Result<SerializableIValue, InternalTorchError> {
         let model_inputs: Vec<IValue> = inputs
             .positional_arguments
             .iter()
             .map(|x| TorchScriptGraph::convert_serializable_ivalue_to_ivalue(x))
             .collect();
 
-        let model_output = self.module.forward_is(&model_inputs)?;
-        Ok(TorchScriptGraph::convert_ivalue_to_serializable_ivalue(
-            &model_output,
-        ))
+        let model_output = self.module.forward_is(&model_inputs);
+        if let Ok(true_model_output) = model_output {
+            return Ok(TorchScriptGraph::convert_ivalue_to_serializable_ivalue(
+                &true_model_output,
+            ));
+        } else if let Err(error) = model_output {
+            return Err(InternalTorchError {
+                internal_error: error.to_string(),
+            });
+        }
+        unimplemented!()
     }
     pub fn forward_batched(&self) {
         assert!(

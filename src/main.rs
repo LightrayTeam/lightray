@@ -2,6 +2,7 @@ use actix_web::{web, App, HttpServer, Responder};
 use listenfd::ListenFd;
 
 mod lightray_torch;
+mod lightray_executor;
 
 fn index() -> impl Responder {
     "Hello World!"
