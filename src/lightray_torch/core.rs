@@ -1,5 +1,4 @@
 use crate::lightray_torch::errors::InternalTorchError;
-use failure::Fallible;
 use serde::{Deserialize, Serialize};
 use tch::IValue;
 
@@ -67,7 +66,8 @@ impl TorchScriptGraph {
         assert!(
             self.batchable,
             r#"forward_batched can only be called on batchable TorchScriptGraph's"#
-        )
+        );
+        todo!()
     }
     fn convert_serializable_ivalue_to_ivalue(value: &SerializableIValue) -> IValue {
         match value {

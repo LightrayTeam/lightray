@@ -2,11 +2,11 @@ use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVeri
 use crate::lightray_torch::core::{TorchScriptGraph, TorchScriptInput};
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct LightrayModelId {
-    model_id: u64,
-    model_version: u16,
+pub struct LightrayModelId {
+    pub model_id: u64,
+    pub model_version: u16,
 }
-struct LightrayModel {
+pub struct LightrayModel {
     pub id: LightrayModelId,
     pub executor: TorchScriptGraph,
     pub samples: Vec<TorchScriptInput>,
