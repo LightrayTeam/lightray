@@ -1,6 +1,5 @@
 use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVerificationError};
 use crate::lightray_torch::core::{TorchScriptGraph, TorchScriptInput};
-use crate::lightray_torch::errors::InternalTorchError;
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct LightrayModelId {
@@ -39,5 +38,20 @@ impl LightrayModel {
             }
         }
         Ok(())
+    }
+    pub fn warmup_jit(&self, warmup_count: u16) -> Result<(), LightrayModelVerificationError> {
+        let _out: () = self.verify()?;
+        let mut counter = 0;
+        loop {
+            for sample in &self.samples {
+                if counter >= warmup_count {
+                    return Ok(());
+                }
+                if let Err(err) = self.executor.forward(&sample) {
+                    return Err(LightrayModelVerificationError::InternalTorchError(err));
+                }
+                counter += 1;
+            }
+        }
     }
 }
