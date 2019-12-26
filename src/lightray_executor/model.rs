@@ -1,3 +1,4 @@
+use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVerificationError};
 use crate::lightray_torch::core::{TorchScriptGraph, TorchScriptInput};
 use crate::lightray_torch::errors::InternalTorchError;
 use serde::{Deserialize, Serialize};
@@ -7,24 +8,36 @@ struct LightrayModelId {
     model_version: u16,
 }
 struct LightrayModel {
-    id: LightrayModelId,
-    executor: TorchScriptGraph,
-    samples: Option<Vec<TorchScriptInput>>,
+    pub id: LightrayModelId,
+    pub executor: TorchScriptGraph,
+    pub samples: Vec<TorchScriptInput>,
+
+    verified: bool,
 }
 impl LightrayModel {
-    fn verify(&self) -> Option<InternalTorchError> {
-        if let Some(unwrapped_samples) = &self.samples {
-            for sample in unwrapped_samples {
-                let model_output = self.executor.forward(&sample);
-                match model_output {
-                    Err(e) => {
-                        return Some(e);
-                    }
-                    _ => continue,
-                }
-            }
-            return None;
+    pub fn new(
+        id: LightrayModelId,
+        executor: TorchScriptGraph,
+        samples: Vec<TorchScriptInput>,
+    ) -> LightrayModel {
+        return LightrayModel {
+            id: id,
+            samples: samples,
+            executor: executor,
+            verified: false,
+        };
+    }
+    pub fn verify(&self) -> Result<(), LightrayModelVerificationError> {
+        if self.samples.len() == 0 {
+            return Err(LightrayModelVerificationError::LightrayMissingSamples(
+                LightrayMissingSamples {},
+            ));
         }
-        None
+        for sample in &self.samples {
+            if let Err(err) = self.executor.forward(&sample) {
+                return Err(LightrayModelVerificationError::InternalTorchError(err));
+            }
+        }
+        Ok(())
     }
 }
