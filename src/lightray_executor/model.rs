@@ -1,5 +1,6 @@
 use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVerificationError};
-use crate::lightray_torch::core::{TorchScriptGraph, TorchScriptInput};
+use crate::lightray_torch::core::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
+use crate::lightray_torch::errors::InternalTorchError;
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct LightrayModelId {
@@ -50,5 +51,12 @@ impl LightrayModel {
                 counter += 1;
             }
         }
+    }
+
+    pub fn execute(
+        &self,
+        input: &TorchScriptInput,
+    ) -> Result<SerializableIValue, InternalTorchError> {
+        self.executor.forward(input)
     }
 }
