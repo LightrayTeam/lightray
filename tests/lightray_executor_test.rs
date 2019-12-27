@@ -7,6 +7,10 @@ use tch::CModule;
 
 static GENERIC_TEXT_BASED_MODEL: &'static str =
     "tests/torchscript_models/generic_text_based_model.pt";
+static GENERIC_TEXT_BASED_MODEL_INPUT: &'static str = r#"{"positional_arguments":
+ [{"List":[{"Str":"<bos>"},{"Str":"call"},{"Str":"mom"},{"Str":"<eos>"}]},
+ {"Int":3},
+ {"Int":3}]}"#;
 
 fn generic_text_based_model_input() -> TorchScriptInput {
     TorchScriptInput {
@@ -75,6 +79,24 @@ fn simple_executor_generic_text_based_model() {
             .subsec_millis()
             < 5
     );
+    assert_eq!(
+        raw_output.execution_result,
+        SerializableIValue::List(vec![
+            SerializableIValue::Str("<bos>".to_string()),
+            SerializableIValue::Str("call".to_string()),
+            SerializableIValue::Str("mom".to_string()),
+            SerializableIValue::Str("<eos>".to_string()),
+        ])
+    );
+}
+
+#[test]
+fn text_simple_executor_generic_text_based_model() {
+    let mut executor = InMemorySimpleLightrayExecutor::new();
+    let register_result = executor.register_model(generic_text_based_model());
+    let model_input =
+        serde_json::from_str::<TorchScriptInput>(&GENERIC_TEXT_BASED_MODEL_INPUT).unwrap();
+    let raw_output: LightrayExecutedExample = executor.execute(&register_result.unwrap(), &model_input).unwrap();
     assert_eq!(
         raw_output.execution_result,
         SerializableIValue::List(vec![
