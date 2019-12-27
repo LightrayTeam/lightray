@@ -19,3 +19,14 @@ pub enum LightrayModelVerificationError {
     InternalTorchError(InternalTorchError),
     LightrayMissingSamples(LightrayMissingSamples),
 }
+
+pub enum LightrayModelExecutionError {
+    InternalTorchScriptError(InternalTorchError),
+    IncorrectTypeSignature,
+    MissingModel,
+}
+
+pub enum LightrayRegistrationError {
+    LightrayModelVerificationError(LightrayModelVerificationError),
+    MissingModel,
+}
