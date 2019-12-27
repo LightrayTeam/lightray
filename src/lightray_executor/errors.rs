@@ -15,17 +15,20 @@ impl fmt::Display for LightrayMissingSamples {
 
 impl Error for LightrayMissingSamples {}
 
+#[derive(Debug)]
 pub enum LightrayModelVerificationError {
     InternalTorchError(InternalTorchError),
     LightrayMissingSamples(LightrayMissingSamples),
 }
 
+#[derive(Debug)]
 pub enum LightrayModelExecutionError {
     InternalTorchScriptError(InternalTorchError),
     IncorrectTypeSignature,
     MissingModel,
 }
 
+#[derive(Debug)]
 pub enum LightrayRegistrationError {
     LightrayModelVerificationError(LightrayModelVerificationError),
     MissingModel,

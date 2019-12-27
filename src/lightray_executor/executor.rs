@@ -17,11 +17,11 @@ pub struct LightrayExecutedExample {
 pub trait LightrayExecutor {
     fn execute(
         &self,
-        model_id: LightrayModelId,
+        model_id: &LightrayModelId,
         example: &TorchScriptInput,
     ) -> Result<LightrayExecutedExample, LightrayModelExecutionError>;
 
-    fn register_model(&mut self, model: LightrayModel) -> Result<(), LightrayRegistrationError>;
+    fn register_model(&mut self, model: LightrayModel) -> Result<LightrayModelId, LightrayRegistrationError>;
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
@@ -39,7 +39,7 @@ impl InMemorySimpleLightrayExecutor {
 impl LightrayExecutor for InMemorySimpleLightrayExecutor {
     fn execute(
         &self,
-        model_id: LightrayModelId,
+        model_id: &LightrayModelId,
         example: &TorchScriptInput,
     ) -> Result<LightrayExecutedExample, LightrayModelExecutionError> {
         if let Some(x) = self.in_memory_mapping.borrow().get(&model_id) {
@@ -67,14 +67,15 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         }
         Err(LightrayModelExecutionError::MissingModel)
     }
-    fn register_model(&mut self, model: LightrayModel) -> Result<(), LightrayRegistrationError> {
+    fn register_model(&mut self, model: LightrayModel) -> Result<LightrayModelId, LightrayRegistrationError> {
         if let Err(x) = model.verify() {
             return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
         }
+        let model_id_clone = model.id.clone();
         self.in_memory_mapping
             .borrow_mut()
             .insert(model.id, Rc::new(model));
-        Ok(())
+        Ok(model_id_clone)
     }
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
         match self.in_memory_mapping.borrow_mut().remove(&model_id) {
