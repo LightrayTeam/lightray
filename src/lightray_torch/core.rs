@@ -13,29 +13,8 @@ pub enum SerializableIValue {
     List(Vec<SerializableIValue>),
 }
 
-impl SerializableIValue {
-    fn convert_serializable_ivalue_to_ivalue(value: &SerializableIValue) -> IValue {
-        match value {
-            SerializableIValue::None => IValue::None,
-            SerializableIValue::Bool(bool_value) => IValue::Bool(bool_value.clone()),
-            SerializableIValue::Int(int_value) => IValue::Int(int_value.clone()),
-            SerializableIValue::Double(double_value) => IValue::Double(double_value.clone()),
-            SerializableIValue::Str(string_value) => IValue::String(string_value.clone()),
-            SerializableIValue::Tuple(tuple_value) => IValue::Tuple(
-                tuple_value
-                    .iter()
-                    .map(|x| SerializableIValue::convert_serializable_ivalue_to_ivalue(x))
-                    .collect(),
-            ),
-            SerializableIValue::List(list_value) => IValue::GenericList(
-                list_value
-                    .iter()
-                    .map(|x| SerializableIValue::convert_serializable_ivalue_to_ivalue(x))
-                    .collect(),
-            ),
-        }
-    }
-    fn convert_ivalue_to_serializable_ivalue(value: &IValue) -> SerializableIValue {
+impl From<&IValue> for SerializableIValue {
+    fn from(value: &IValue) -> Self {
         match value {
             IValue::None => SerializableIValue::None,
             IValue::Bool(bool_value) => SerializableIValue::Bool(bool_value.clone()),
@@ -45,13 +24,13 @@ impl SerializableIValue {
             IValue::Tuple(tuple_value) => SerializableIValue::Tuple(
                 tuple_value
                     .iter()
-                    .map(|x| SerializableIValue::convert_ivalue_to_serializable_ivalue(x))
+                    .map(|x| SerializableIValue::from(x))
                     .collect(),
             ),
             IValue::GenericList(tuple_value) => SerializableIValue::List(
                 tuple_value
                     .iter()
-                    .map(|x| SerializableIValue::convert_ivalue_to_serializable_ivalue(x))
+                    .map(|x| SerializableIValue::from(x))
                     .collect(),
             ),
             IValue::DoubleList(doubles_value) => SerializableIValue::List(
@@ -73,6 +52,29 @@ impl SerializableIValue {
                     .collect(),
             ),
             _ => unimplemented!(),
+        }
+    }
+}
+impl From<&SerializableIValue> for IValue {
+    fn from(value: &SerializableIValue) -> Self {
+        match value {
+            SerializableIValue::None => IValue::None,
+            SerializableIValue::Bool(bool_value) => IValue::Bool(bool_value.clone()),
+            SerializableIValue::Int(int_value) => IValue::Int(int_value.clone()),
+            SerializableIValue::Double(double_value) => IValue::Double(double_value.clone()),
+            SerializableIValue::Str(string_value) => IValue::String(string_value.clone()),
+            SerializableIValue::Tuple(tuple_value) => IValue::Tuple(
+                tuple_value
+                    .iter()
+                    .map(|x| IValue::from(x))
+                    .collect(),
+            ),
+            SerializableIValue::List(list_value) => IValue::GenericList(
+                list_value
+                    .iter()
+                    .map(|x| IValue::from(x))
+                    .collect(),
+            ),
         }
     }
 }
@@ -110,20 +112,20 @@ impl TorchScriptGraph {
         let model_inputs: Vec<IValue> = inputs
             .positional_arguments
             .iter()
-            .map(|x| SerializableIValue::convert_serializable_ivalue_to_ivalue(x))
+            .map(|x| IValue::from(x))
             .collect();
 
         let model_output = self.module.forward_is(&model_inputs);
-        if let Ok(true_model_output) = model_output {
-            return Ok(SerializableIValue::convert_ivalue_to_serializable_ivalue(
-                &true_model_output,
-            ));
-        } else if let Err(error) = model_output {
-            return Err(InternalTorchError {
-                internal_error: error.to_string(),
-            });
+        match model_output {
+            Result::Ok(true_model_output) => {
+                return Ok(SerializableIValue::from(&true_model_output))
+            }
+            Result::Err(error) => {
+                return Err(InternalTorchError {
+                    internal_error: error.to_string(),
+                });
+            }
         }
-        unimplemented!()
     }
     pub fn forward_batched(&self) {
         assert!(
@@ -155,6 +157,6 @@ mod tests {
         };
         let serialized = serde_json::to_string(&torchscript_input).unwrap();
         let unserialized: TorchScriptInput = serde_json::from_str(&serialized).unwrap();
-        assert!(torchscript_input == unserialized)
+        assert_eq!(torchscript_input, unserialized)
     }
 }
