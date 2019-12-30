@@ -5,7 +5,7 @@ use crate::lightray_executor::errors::{
 };
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
+
 #[derive(Serialize, Deserialize)]
 pub enum LightrayIValueSemantic {
     ExactValueMatch,

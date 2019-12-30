@@ -1,6 +1,4 @@
-use crate::lightray_torch::core::SerializableIValue;
 use crate::lightray_torch::errors::InternalTorchError;
-use serde_json;
 use std::error::Error;
 use std::fmt;
 #[derive(Debug)]
@@ -90,6 +88,7 @@ pub enum LightrayModelVerificationError {
 
 #[derive(Debug)]
 pub enum LightrayModelExecutionError {
+    LightrayModelInputSemanticError(LightrayModelInputSemanticError),
     InternalTorchScriptError(InternalTorchError),
     IncorrectTypeSignature,
     MissingModel,
@@ -106,5 +105,5 @@ pub enum LightrayModelInputSemanticError {
     LightrayVerificationInputSize(LightrayVerificationInputSize),
     LightrayVerificationInputTypes(LightrayVerificationInputTypes),
     LightrayVerificationInputDoesNotEqual(LightrayVerificationInputDoesNotEqual),
-    LightrayVerificationInputSizeDoesNotEqual(LightrayVerificationInputSizeDoesNotEqual)
+    LightrayVerificationInputSizeDoesNotEqual(LightrayVerificationInputSizeDoesNotEqual),
 }

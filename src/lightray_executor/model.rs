@@ -1,9 +1,11 @@
-use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVerificationError};
-use crate::lightray_executor::semantics::{LightrayIValueSemantic, LightrayModelSemantics};
+use crate::lightray_executor::errors::{
+    LightrayMissingSamples, LightrayModelExecutionError, LightrayModelVerificationError,
+};
+use crate::lightray_executor::semantics::LightrayModelSemantics;
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
-use crate::lightray_torch::errors::InternalTorchError;
+
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct LightrayModelId {
     pub model_id: u64,
@@ -61,7 +63,17 @@ impl LightrayModel {
     pub fn execute(
         &self,
         input: &TorchScriptInput,
-    ) -> Result<SerializableIValue, InternalTorchError> {
-        self.executor.forward(input)
+        do_semantic_verification: bool,
+    ) -> Result<SerializableIValue, LightrayModelExecutionError> {
+        if do_semantic_verification {
+            if let Err(x) = self.semantics.verify_semantics(input, &self.samples[0]) {
+                return Err(LightrayModelExecutionError::LightrayModelInputSemanticError(x));
+            }
+        }
+        let result = self.executor.forward(input);
+        match result {
+            Result::Ok(x) => Ok(x),
+            Result::Err(y) => Err(LightrayModelExecutionError::InternalTorchScriptError(y)),
+        }
     }
 }

@@ -19,9 +19,13 @@ pub trait LightrayExecutor {
         &self,
         model_id: &LightrayModelId,
         example: &TorchScriptInput,
+        do_verification: bool,
     ) -> Result<LightrayExecutedExample, LightrayModelExecutionError>;
 
-    fn register_model(&mut self, model: LightrayModel) -> Result<LightrayModelId, LightrayRegistrationError>;
+    fn register_model(
+        &mut self,
+        model: LightrayModel,
+    ) -> Result<LightrayModelId, LightrayRegistrationError>;
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
@@ -41,11 +45,12 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         &self,
         model_id: &LightrayModelId,
         example: &TorchScriptInput,
+        do_semantic_verification: bool,
     ) -> Result<LightrayExecutedExample, LightrayModelExecutionError> {
         if let Some(x) = self.in_memory_mapping.borrow().get(&model_id) {
             let system_start_time = SystemTime::now();
             let instant_start_time = Instant::now();
-            let model_output = x.execute(&example);
+            let model_output = x.execute(&example, do_semantic_verification);
             let instant_end_time = Instant::now();
             let system_end_time = SystemTime::now();
 
@@ -61,13 +66,16 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
                     })
                 }
                 Err(error) => {
-                    return Err(LightrayModelExecutionError::InternalTorchScriptError(error))
+                    return Err(error);
                 }
             }
         }
         Err(LightrayModelExecutionError::MissingModel)
     }
-    fn register_model(&mut self, model: LightrayModel) -> Result<LightrayModelId, LightrayRegistrationError> {
+    fn register_model(
+        &mut self,
+        model: LightrayModel,
+    ) -> Result<LightrayModelId, LightrayRegistrationError> {
         if let Err(x) = model.verify() {
             return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
         }
