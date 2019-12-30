@@ -11,6 +11,7 @@ pub enum SerializableIValue {
     Str(String),
     Tuple(Vec<SerializableIValue>),
     List(Vec<SerializableIValue>),
+    Optional(Option<Box<SerializableIValue>>),
 }
 
 impl From<&IValue> for SerializableIValue {
@@ -63,18 +64,16 @@ impl From<&SerializableIValue> for IValue {
             SerializableIValue::Int(int_value) => IValue::Int(int_value.clone()),
             SerializableIValue::Double(double_value) => IValue::Double(double_value.clone()),
             SerializableIValue::Str(string_value) => IValue::String(string_value.clone()),
-            SerializableIValue::Tuple(tuple_value) => IValue::Tuple(
-                tuple_value
-                    .iter()
-                    .map(|x| IValue::from(x))
-                    .collect(),
-            ),
-            SerializableIValue::List(list_value) => IValue::GenericList(
-                list_value
-                    .iter()
-                    .map(|x| IValue::from(x))
-                    .collect(),
-            ),
+            SerializableIValue::Tuple(tuple_value) => {
+                IValue::Tuple(tuple_value.iter().map(|x| IValue::from(x)).collect())
+            }
+            SerializableIValue::List(list_value) => {
+                IValue::GenericList(list_value.iter().map(|x| IValue::from(x)).collect())
+            }
+            SerializableIValue::Optional(optional) => match &optional {
+                Option::None => IValue::None,
+                Option::Some(x) => IValue::from(&**x),
+            },
         }
     }
 }
