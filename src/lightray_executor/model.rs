@@ -23,13 +23,15 @@ impl LightrayModel {
         executor: TorchScriptGraph,
         samples: Vec<TorchScriptInput>,
         semantics: LightrayModelSemantics,
-    ) -> LightrayModel {
-        return LightrayModel {
+    ) -> Result<LightrayModel, LightrayModelVerificationError> {
+        let model = LightrayModel {
             id,
             samples,
             executor,
             semantics,
         };
+        model.verify()?;
+        Ok(model)
     }
     pub fn verify(&self) -> Result<(), LightrayModelVerificationError> {
         if self.samples.len() == 0 {
@@ -45,7 +47,6 @@ impl LightrayModel {
         Ok(())
     }
     pub fn warmup_jit(&self, warmup_count: u16) -> Result<(), LightrayModelVerificationError> {
-        let _out = self.verify()?;
         let mut counter = 0;
         loop {
             for sample in &self.samples {
