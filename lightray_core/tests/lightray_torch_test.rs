@@ -1,4 +1,4 @@
-use lightray::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
+use lightray_core::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 use tch::CModule;
 
 static GENERIC_TEXT_BASED_MODEL: &'static str =

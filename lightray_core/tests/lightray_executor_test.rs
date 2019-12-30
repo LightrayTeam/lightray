@@ -1,13 +1,13 @@
-use lightray::lightray_executor::errors::{
+use lightray_core::lightray_executor::errors::{
     LightrayModelExecutionError, LightrayModelInputSemanticError,
 };
-use lightray::lightray_executor::executor::{
+use lightray_core::lightray_executor::executor::{
     InMemorySimpleLightrayExecutor, LightrayExecutedExample, LightrayExecutor,
 };
-use lightray::lightray_executor::{
+use lightray_core::lightray_executor::{
     LightrayIValueSemantic, LightrayModel, LightrayModelId, LightrayModelSemantics,
 };
-use lightray::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
+use lightray_core::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 use tch::CModule;
 
 static GENERIC_TEXT_BASED_MODEL: &'static str =
