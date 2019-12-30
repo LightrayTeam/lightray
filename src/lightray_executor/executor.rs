@@ -74,7 +74,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         let model_id_clone = model.id.clone();
         self.in_memory_mapping
             .borrow_mut()
-            .insert(model.id, Rc::new(model));
+            .insert(model.id, Rc::new(model).clone());
         Ok(model_id_clone)
     }
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {

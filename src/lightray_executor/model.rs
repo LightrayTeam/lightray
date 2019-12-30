@@ -1,7 +1,9 @@
 use crate::lightray_executor::errors::{LightrayMissingSamples, LightrayModelVerificationError};
+use crate::lightray_executor::semantics::{LightrayIValueSemantic, LightrayModelSemantics};
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 use crate::lightray_torch::errors::InternalTorchError;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct LightrayModelId {
     pub model_id: u64,
@@ -11,17 +13,20 @@ pub struct LightrayModel {
     pub id: LightrayModelId,
     pub executor: TorchScriptGraph,
     pub samples: Vec<TorchScriptInput>,
+    pub semantics: LightrayModelSemantics,
 }
 impl LightrayModel {
     pub fn new(
         id: LightrayModelId,
         executor: TorchScriptGraph,
         samples: Vec<TorchScriptInput>,
+        semantics: LightrayModelSemantics,
     ) -> LightrayModel {
         return LightrayModel {
-            id: id,
-            samples: samples,
-            executor: executor,
+            id,
+            samples,
+            executor,
+            semantics,
         };
     }
     pub fn verify(&self) -> Result<(), LightrayModelVerificationError> {

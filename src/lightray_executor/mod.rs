@@ -5,3 +5,4 @@ pub mod semantics;
 pub mod statistics;
 
 pub use self::model::*;
+pub use self::semantics::*;

@@ -16,9 +16,8 @@ pub struct LightrayVerificationInputTypes {
     pub argument_position: u16,
 }
 #[derive(Debug)]
-pub struct LightrayVerificationInputDoesNotEqual<'a> {
+pub struct LightrayVerificationInputDoesNotEqual {
     pub argument_position: u16,
-    pub value: &'a SerializableIValue,
 }
 #[derive(Debug)]
 pub struct LightrayVerificationInputSizeDoesNotEqual {
@@ -60,19 +59,17 @@ impl fmt::Display for LightrayVerificationInputTypes {
 
 impl Error for LightrayVerificationInputTypes {}
 
-impl<'a> fmt::Display for LightrayVerificationInputDoesNotEqual<'a> {
+impl fmt::Display for LightrayVerificationInputDoesNotEqual {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "LightrayModel input at position {0} does not equal it's exact value {1}",
+            "LightrayModel input at position {0} does not equal it's exact value",
             self.argument_position,
-            // This should not panic, our tests cover all variants of SerializableIValue
-            serde_json::to_string(&self.value).unwrap()
         )
     }
 }
 
-impl<'a> Error for LightrayVerificationInputDoesNotEqual<'a> {}
+impl Error for LightrayVerificationInputDoesNotEqual {}
 
 impl fmt::Display for LightrayVerificationInputSizeDoesNotEqual {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -105,9 +102,9 @@ pub enum LightrayRegistrationError {
 }
 
 #[derive(Debug)]
-pub enum LightrayModelInputSemanticError<'a> {
+pub enum LightrayModelInputSemanticError {
     LightrayVerificationInputSize(LightrayVerificationInputSize),
     LightrayVerificationInputTypes(LightrayVerificationInputTypes),
-    LightrayVerificationInputDoesNotEqual(LightrayVerificationInputDoesNotEqual<'a>),
+    LightrayVerificationInputDoesNotEqual(LightrayVerificationInputDoesNotEqual),
     LightrayVerificationInputSizeDoesNotEqual(LightrayVerificationInputSizeDoesNotEqual)
 }

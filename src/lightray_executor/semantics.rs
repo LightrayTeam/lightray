@@ -5,23 +5,23 @@ use crate::lightray_executor::errors::{
 };
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 #[derive(Serialize, Deserialize)]
 pub enum LightrayIValueSemantic {
     ExactValueMatch,
     SizeMatch,
     TypeMatch,
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct LightrayModelSemantics {
-    positional_semantics: Vec<LightrayIValueSemantic>,
-    sample_input: TorchScriptInput,
+    pub positional_semantics: Vec<LightrayIValueSemantic>,
 }
 
 impl LightrayModelSemantics {
     pub fn verify_semantics(
         &self,
         model_input: &TorchScriptInput,
+        model_baseline: &TorchScriptInput,
     ) -> Result<(), LightrayModelInputSemanticError> {
         if model_input.positional_arguments.len() != self.positional_semantics.len() {
             return Err(
@@ -34,7 +34,7 @@ impl LightrayModelSemantics {
             );
         }
         for i in 0..model_input.positional_arguments.len() {
-            if std::mem::discriminant(&self.sample_input.positional_arguments[i])
+            if std::mem::discriminant(&model_baseline.positional_arguments[i])
                 != std::mem::discriminant(&model_input.positional_arguments[i])
             {
                 return Err(
@@ -47,14 +47,13 @@ impl LightrayModelSemantics {
             }
             match &self.positional_semantics[i] {
                 LightrayIValueSemantic::ExactValueMatch => {
-                    if &self.sample_input.positional_arguments[i]
+                    if &model_baseline.positional_arguments[i]
                         != &model_input.positional_arguments[i]
                     {
                         return Err(
                             LightrayModelInputSemanticError::LightrayVerificationInputDoesNotEqual(
                                 LightrayVerificationInputDoesNotEqual {
                                     argument_position: i as u16,
-                                    value: &self.sample_input.positional_arguments[i],
                                 },
                             ),
                         );
@@ -62,7 +61,7 @@ impl LightrayModelSemantics {
                 }
                 LightrayIValueSemantic::SizeMatch => {
                     match (
-                        &self.sample_input.positional_arguments[i],
+                        &model_baseline.positional_arguments[i],
                         &model_input.positional_arguments[i],
                     ) {
                         (SerializableIValue::Tuple(x), SerializableIValue::Tuple(y)) => {
@@ -85,5 +84,33 @@ impl LightrayModelSemantics {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_different_length_verification() {
+        let torchscript_input = TorchScriptInput {
+            positional_arguments: vec![
+                SerializableIValue::List(vec![
+                    SerializableIValue::Str("<bos>".to_string()),
+                    SerializableIValue::Str("call".to_string()),
+                    SerializableIValue::Str("mom".to_string()),
+                    SerializableIValue::Str("<eos>".to_string()),
+                ]),
+                SerializableIValue::Bool(true),
+                SerializableIValue::Int(3),
+                SerializableIValue::Int(3),
+            ],
+        };
+        let _torchscript_semantic = LightrayModelSemantics {
+            positional_semantics: vec![],
+        };
+        let serialized = serde_json::to_string(&torchscript_input).unwrap();
+        let unserialized: TorchScriptInput = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(torchscript_input, unserialized)
     }
 }

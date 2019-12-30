@@ -1,7 +1,9 @@
 use lightray::lightray_executor::executor::{
     InMemorySimpleLightrayExecutor, LightrayExecutedExample, LightrayExecutor,
 };
-use lightray::lightray_executor::{LightrayModel, LightrayModelId};
+use lightray::lightray_executor::{
+    LightrayIValueSemantic, LightrayModel, LightrayModelId, LightrayModelSemantics,
+};
 use lightray::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 use tch::CModule;
 
@@ -26,6 +28,15 @@ fn generic_text_based_model_input() -> TorchScriptInput {
         ],
     }
 }
+fn generic_text_based_model_semantics() -> LightrayModelSemantics {
+    LightrayModelSemantics {
+        positional_semantics: vec![
+            LightrayIValueSemantic::TypeMatch,
+            LightrayIValueSemantic::ExactValueMatch,
+            LightrayIValueSemantic::ExactValueMatch,
+        ],
+    }
+}
 fn generic_text_based_model() -> LightrayModel {
     let graph = TorchScriptGraph {
         batchable: false,
@@ -36,7 +47,12 @@ fn generic_text_based_model() -> LightrayModel {
         model_version: 0,
     };
 
-    LightrayModel::new(lightray_id, graph, vec![generic_text_based_model_input()])
+    LightrayModel::new(
+        lightray_id,
+        graph,
+        vec![generic_text_based_model_input()],
+        generic_text_based_model_semantics(),
+    )
 }
 
 #[test]
@@ -96,7 +112,9 @@ fn text_simple_executor_generic_text_based_model() {
     let register_result = executor.register_model(generic_text_based_model());
     let model_input =
         serde_json::from_str::<TorchScriptInput>(&GENERIC_TEXT_BASED_MODEL_INPUT).unwrap();
-    let raw_output: LightrayExecutedExample = executor.execute(&register_result.unwrap(), &model_input).unwrap();
+    let raw_output: LightrayExecutedExample = executor
+        .execute(&register_result.unwrap(), &model_input)
+        .unwrap();
     assert_eq!(
         raw_output.execution_result,
         SerializableIValue::List(vec![
