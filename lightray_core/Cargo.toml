@@ -16,3 +16,6 @@ serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.44"
 failure = "0.1.6"
 sys-info = "0.5.8"
+crossbeam-queue = "0.2"
+tokio = { version = "0.2.6", features = ["full"] }
+async-trait = "0.1.22"
