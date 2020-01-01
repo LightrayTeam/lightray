@@ -31,6 +31,7 @@ pub trait LightrayExecutor {
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
+#[derive(Default)]
 pub struct InMemorySimpleLightrayExecutor {
     in_memory_mapping: Rc<RefCell<HashMap<LightrayModelId, Rc<LightrayModel>>>>,
 }
