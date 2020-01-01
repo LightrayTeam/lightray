@@ -18,38 +18,32 @@ impl From<&IValue> for SerializableIValue {
     fn from(value: &IValue) -> Self {
         match value {
             IValue::None => SerializableIValue::None,
-            IValue::Bool(bool_value) => SerializableIValue::Bool(bool_value.clone()),
-            IValue::Int(int_value) => SerializableIValue::Int(int_value.clone()),
-            IValue::Double(double_value) => SerializableIValue::Double(double_value.clone()),
+            IValue::Bool(bool_value) => SerializableIValue::Bool(*bool_value),
+            IValue::Int(int_value) => SerializableIValue::Int(*int_value),
+            IValue::Double(double_value) => SerializableIValue::Double(*double_value),
             IValue::String(string_value) => SerializableIValue::Str(string_value.clone()),
             IValue::Tuple(tuple_value) => SerializableIValue::Tuple(
-                tuple_value
-                    .iter()
-                    .map(|x| SerializableIValue::from(x))
-                    .collect(),
+                tuple_value.iter().map(SerializableIValue::from).collect(),
             ),
-            IValue::GenericList(tuple_value) => SerializableIValue::List(
-                tuple_value
-                    .iter()
-                    .map(|x| SerializableIValue::from(x))
-                    .collect(),
-            ),
+            IValue::GenericList(tuple_value) => {
+                SerializableIValue::List(tuple_value.iter().map(SerializableIValue::from).collect())
+            }
             IValue::DoubleList(doubles_value) => SerializableIValue::List(
                 doubles_value
                     .iter()
-                    .map(|x| SerializableIValue::Double(x.clone()))
+                    .map(|x| SerializableIValue::Double(*x))
                     .collect(),
             ),
             IValue::IntList(ints_value) => SerializableIValue::List(
                 ints_value
                     .iter()
-                    .map(|x| SerializableIValue::Int(x.clone()))
+                    .map(|x| SerializableIValue::Int(*x))
                     .collect(),
             ),
             IValue::BoolList(ints_value) => SerializableIValue::List(
                 ints_value
                     .iter()
-                    .map(|x| SerializableIValue::Bool(x.clone()))
+                    .map(|x| SerializableIValue::Bool(*x))
                     .collect(),
             ),
             _ => unimplemented!(),
@@ -60,15 +54,15 @@ impl From<&SerializableIValue> for IValue {
     fn from(value: &SerializableIValue) -> Self {
         match value {
             SerializableIValue::None => IValue::None,
-            SerializableIValue::Bool(bool_value) => IValue::Bool(bool_value.clone()),
-            SerializableIValue::Int(int_value) => IValue::Int(int_value.clone()),
-            SerializableIValue::Double(double_value) => IValue::Double(double_value.clone()),
+            SerializableIValue::Bool(bool_value) => IValue::Bool(*bool_value),
+            SerializableIValue::Int(int_value) => IValue::Int(*int_value),
+            SerializableIValue::Double(double_value) => IValue::Double(*double_value),
             SerializableIValue::Str(string_value) => IValue::String(string_value.clone()),
             SerializableIValue::Tuple(tuple_value) => {
-                IValue::Tuple(tuple_value.iter().map(|x| IValue::from(x)).collect())
+                IValue::Tuple(tuple_value.iter().map(IValue::from).collect())
             }
             SerializableIValue::List(list_value) => {
-                IValue::GenericList(list_value.iter().map(|x| IValue::from(x)).collect())
+                IValue::GenericList(list_value.iter().map(IValue::from).collect())
             }
             SerializableIValue::Optional(optional) => match &optional {
                 Option::None => IValue::None,
@@ -94,9 +88,6 @@ impl PartialEq for TorchScriptInput {
         }
         true
     }
-    fn ne(&self, other: &TorchScriptInput) -> bool {
-        !self.eq(other)
-    }
 }
 pub struct TorchScriptGraph {
     pub batchable: bool,
@@ -111,19 +102,15 @@ impl TorchScriptGraph {
         let model_inputs: Vec<IValue> = inputs
             .positional_arguments
             .iter()
-            .map(|x| IValue::from(x))
+            .map(IValue::from)
             .collect();
 
         let model_output = self.module.forward_is(&model_inputs);
         match model_output {
-            Result::Ok(true_model_output) => {
-                return Ok(SerializableIValue::from(&true_model_output))
-            }
-            Result::Err(error) => {
-                return Err(InternalTorchError {
-                    internal_error: error.to_string(),
-                });
-            }
+            Result::Ok(true_model_output) => Ok(SerializableIValue::from(&true_model_output)),
+            Result::Err(error) => Err(InternalTorchError {
+                internal_error: error.to_string(),
+            }),
         }
     }
     pub fn forward_batched(&self) {

@@ -1,14 +1,17 @@
+use crate::lightray_executor::executor::LightrayExecutorResult;
+use crate::lightray_scheduler::errors::LightraySchedulerError;
 use crate::lightray_scheduler::metrics::SchedulerMetric;
+use crate::lightray_torch::core::TorchScriptInput;
+
 use async_trait::async_trait;
-use std::future::Future;
-use std::sync::Arc;
-pub struct ResultWork<T> {
-    payload: Arc<T>,
-    error: Option<Arc<dyn std::error::Error>>,
-    metrics: SchedulerMetric,
+
+pub struct LightrayScheduledExecutionResult {
+    pub execution_result: Option<LightrayExecutorResult>,
+    pub scheduler_error: Option<LightraySchedulerError>,
+    pub scheduler_metrics: SchedulerMetric,
 }
 #[async_trait(?Send)]
-pub trait LightrayWorkQueue<T, Y> {
-    async fn enqueue(&mut self, payload: Arc<T>) -> ResultWork<Y>;
+pub trait LightrayWorkQueue {
+    async fn enqueue(&mut self, payload: TorchScriptInput) -> LightrayScheduledExecutionResult;
     fn worker_loop(&mut self);
 }

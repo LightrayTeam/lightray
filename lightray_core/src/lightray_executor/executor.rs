@@ -9,6 +9,8 @@ use std::rc::Rc;
 
 use std::time::{Instant, SystemTime};
 
+pub type LightrayExecutorResult = Result<LightrayExecutedExample, LightrayModelExecutionError>;
+
 pub struct LightrayExecutedExample {
     pub execution_statistic: LightrayModelExecutionStatistic,
     pub execution_result: SerializableIValue,
@@ -46,7 +48,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         model_id: &LightrayModelId,
         example: &TorchScriptInput,
         do_semantic_verification: bool,
-    ) -> Result<LightrayExecutedExample, LightrayModelExecutionError> {
+    ) -> LightrayExecutorResult {
         if let Some(x) = self.in_memory_mapping.borrow().get(&model_id) {
             let system_start_time = SystemTime::now();
             let instant_start_time = Instant::now();
@@ -79,15 +81,15 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         if let Err(x) = model.verify() {
             return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
         }
-        let model_id_clone = model.id.clone();
+        let model_id_clone = model.id;
         self.in_memory_mapping
             .borrow_mut()
-            .insert(model.id, Rc::new(model).clone());
+            .insert(model.id, Rc::new(model));
         Ok(model_id_clone)
     }
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
         match self.in_memory_mapping.borrow_mut().remove(&model_id) {
-            None => return Err(LightrayRegistrationError::MissingModel),
+            None => Err(LightrayRegistrationError::MissingModel),
             _ => Ok(()),
         }
     }
