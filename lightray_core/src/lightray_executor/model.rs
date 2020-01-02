@@ -34,7 +34,7 @@ impl LightrayModel {
         Ok(model)
     }
     pub fn verify(&self) -> Result<(), LightrayModelVerificationError> {
-        if self.samples.len() == 0 {
+        if self.samples.is_empty() {
             return Err(LightrayModelVerificationError::LightrayMissingSamples(
                 LightrayMissingSamples {},
             ));
