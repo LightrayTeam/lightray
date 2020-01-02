@@ -3,9 +3,8 @@ use crate::lightray_executor::model::{LightrayModel, LightrayModelId};
 use crate::lightray_executor::statistics::LightrayModelExecutionStatistic;
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use std::time::{Instant, SystemTime};
 
@@ -26,17 +25,18 @@ pub trait LightrayExecutor {
         &mut self,
         model: LightrayModel,
     ) -> Result<LightrayModelId, LightrayRegistrationError>;
+    
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
 pub struct InMemorySimpleLightrayExecutor {
-    in_memory_mapping: Rc<RefCell<HashMap<LightrayModelId, Rc<LightrayModel>>>>,
+    in_memory_mapping: Arc<Mutex<HashMap<LightrayModelId, Arc<LightrayModel>>>>,
 }
 
 impl InMemorySimpleLightrayExecutor {
     pub fn new() -> Self {
         Self {
-            in_memory_mapping: Rc::new(RefCell::new(HashMap::new())),
+            in_memory_mapping: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -47,7 +47,8 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         example: &TorchScriptInput,
         do_semantic_verification: bool,
     ) -> Result<LightrayExecutedExample, LightrayModelExecutionError> {
-        if let Some(x) = self.in_memory_mapping.borrow().get(&model_id) {
+
+        if let Some(x) = self.in_memory_mapping.lock().unwrap().get(&model_id) {
             let system_start_time = SystemTime::now();
             let instant_start_time = Instant::now();
             let model_output = x.execute(&example, do_semantic_verification);
@@ -80,15 +81,28 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
             return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
         }
         let model_id_clone = model.id.clone();
-        self.in_memory_mapping
-            .borrow_mut()
-            .insert(model.id, Rc::new(model).clone());
+        match self.in_memory_mapping.lock() {
+            Ok(mut in_memory_mapping) => {
+                in_memory_mapping.insert(model.id, Arc::new(model).clone());
+            }
+            Err(_) => {
+                return Err(LightrayRegistrationError::PoisonError);
+            }
+        }
+        
         Ok(model_id_clone)
     }
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
-        match self.in_memory_mapping.borrow_mut().remove(&model_id) {
-            None => return Err(LightrayRegistrationError::MissingModel),
-            _ => Ok(()),
+        match self.in_memory_mapping.lock() {
+            Ok(mut in_memory_mapping) => {
+                match in_memory_mapping.remove(&model_id) {
+                    None => return Err(LightrayRegistrationError::MissingModel),
+                    _ => Ok(()),
+                }
+            }
+            Err(_) => {
+                return Err(LightrayRegistrationError::PoisonError);
+            }
         }
     }
 }

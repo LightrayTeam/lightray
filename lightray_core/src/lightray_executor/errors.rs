@@ -1,6 +1,7 @@
 use crate::lightray_torch::errors::InternalTorchError;
 use std::error::Error;
 use std::fmt;
+
 #[derive(Debug)]
 pub struct LightrayMissingSamples {}
 
@@ -80,6 +81,7 @@ impl fmt::Display for LightrayVerificationInputSizeDoesNotEqual {
 }
 
 impl Error for LightrayVerificationInputSizeDoesNotEqual {}
+
 #[derive(Debug)]
 pub enum LightrayModelVerificationError {
     InternalTorchError(InternalTorchError),
@@ -98,6 +100,7 @@ pub enum LightrayModelExecutionError {
 pub enum LightrayRegistrationError {
     LightrayModelVerificationError(LightrayModelVerificationError),
     MissingModel,
+    PoisonError,
 }
 
 #[derive(Debug)]
