@@ -1,4 +1,5 @@
 use crate::lightray_executor::executor::LightrayExecutorResult;
+use crate::lightray_executor::model::LightrayModelId;
 use crate::lightray_scheduler::errors::LightraySchedulerError;
 use crate::lightray_scheduler::queue::{LightrayScheduledExecutionResult, LightrayWorkQueue};
 use crate::lightray_scheduler::statistics::SchedulerStatistics;
@@ -9,16 +10,17 @@ use std::time::{Instant, SystemTime};
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 pub struct ChannelBasedWork {
     payload: TorchScriptInput,
+    model_id: LightrayModelId,
     sender: Sender<LightrayExecutorResult>,
 }
 pub struct LightrayFIFOWorkQueue {
     worker_queue: SegQueue<ChannelBasedWork>,
-    worker_function: fn(&TorchScriptInput) -> LightrayExecutorResult,
+    worker_function: fn(&TorchScriptInput, model_id: &LightrayModelId) -> LightrayExecutorResult,
 }
 
 impl LightrayFIFOWorkQueue {
     pub fn new(
-        worker_function: fn(&TorchScriptInput) -> LightrayExecutorResult,
+        worker_function: fn(&TorchScriptInput, &LightrayModelId) -> LightrayExecutorResult,
     ) -> LightrayFIFOWorkQueue {
         LightrayFIFOWorkQueue {
             worker_queue: SegQueue::new(),
@@ -29,13 +31,18 @@ impl LightrayFIFOWorkQueue {
 
 #[async_trait(?Send)]
 impl LightrayWorkQueue for LightrayFIFOWorkQueue {
-    async fn enqueue(&mut self, payload: TorchScriptInput) -> LightrayScheduledExecutionResult {
+    async fn enqueue(
+        &mut self,
+        payload: TorchScriptInput,
+        model_id: LightrayModelId,
+    ) -> LightrayScheduledExecutionResult {
         let (tx, rx): (
             Sender<LightrayExecutorResult>,
             Receiver<LightrayExecutorResult>,
         ) = channel();
         let work: ChannelBasedWork = ChannelBasedWork {
             payload,
+            model_id,
             sender: tx,
         };
         let queue_instance_start_time = Instant::now();
@@ -70,7 +77,7 @@ impl LightrayWorkQueue for LightrayFIFOWorkQueue {
     fn worker_loop(&mut self) {
         loop {
             if let Ok(value) = self.worker_queue.pop() {
-                let executed_value = (self.worker_function)(&value.payload);
+                let executed_value = (self.worker_function)(&value.payload, &value.model_id);
                 let _x = value.sender.send(executed_value);
             }
         }

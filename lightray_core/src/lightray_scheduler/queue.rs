@@ -1,8 +1,8 @@
 use crate::lightray_executor::executor::LightrayExecutorResult;
+use crate::lightray_executor::model::LightrayModelId;
 use crate::lightray_scheduler::errors::LightraySchedulerError;
 use crate::lightray_scheduler::statistics::SchedulerStatistics;
 use crate::lightray_torch::core::TorchScriptInput;
-
 use async_trait::async_trait;
 
 pub struct LightrayScheduledExecutionResult {
@@ -12,6 +12,10 @@ pub struct LightrayScheduledExecutionResult {
 }
 #[async_trait(?Send)]
 pub trait LightrayWorkQueue {
-    async fn enqueue(&mut self, payload: TorchScriptInput) -> LightrayScheduledExecutionResult;
+    async fn enqueue(
+        &mut self,
+        payload: TorchScriptInput,
+        model_id: LightrayModelId,
+    ) -> LightrayScheduledExecutionResult;
     fn worker_loop(&mut self);
 }
