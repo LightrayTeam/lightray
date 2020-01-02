@@ -27,7 +27,7 @@ pub trait LightrayExecutor {
         &mut self,
         model: LightrayModel,
     ) -> Result<LightrayModelId, LightrayRegistrationError>;
-    
+
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
@@ -50,7 +50,6 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         example: &TorchScriptInput,
         do_semantic_verification: bool,
     ) -> LightrayExecutorResult {
-
         if let Some(x) = self.in_memory_mapping.lock().unwrap().get(&model_id) {
             let system_start_time = SystemTime::now();
             let instant_start_time = Instant::now();
@@ -84,28 +83,15 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
             return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
         }
         let model_id_clone = model.id;
-        match self.in_memory_mapping.lock() {
-            Ok(mut in_memory_mapping) => {
-                in_memory_mapping.insert(model.id, Arc::new(model));
-            }
-            Err(_) => {
-                return Err(LightrayRegistrationError::PoisonError);
-            }
-        }
-        
+        self.in_memory_mapping
+            .lock()?
+            .insert(model.id, Arc::new(model));
         Ok(model_id_clone)
     }
     fn delete_model(&mut self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
-        match self.in_memory_mapping.lock() {
-            Ok(mut in_memory_mapping) => {
-                match in_memory_mapping.remove(&model_id) {
-                    None => Err(LightrayRegistrationError::MissingModel),
-                    _ => Ok(()),
-                }
-            }
-            Err(_) => {
-                return Err(LightrayRegistrationError::PoisonError);
-            }
+        match self.in_memory_mapping.lock()?.remove(&model_id) {
+            None => Err(LightrayRegistrationError::MissingModel),
+            _ => Ok(()),
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::lightray_torch::errors::InternalTorchError;
 use std::error::Error;
 use std::fmt;
-
+use std::sync::PoisonError;
 #[derive(Debug)]
 pub struct LightrayMissingSamples {}
 
@@ -103,6 +103,11 @@ pub enum LightrayRegistrationError {
     PoisonError,
 }
 
+impl<T> From<PoisonError<T>> for LightrayRegistrationError {
+    fn from(_: PoisonError<T>) -> LightrayRegistrationError {
+        LightrayRegistrationError::PoisonError
+    }
+}
 #[derive(Debug)]
 pub enum LightrayModelInputSemanticError {
     LightrayVerificationInputSize(LightrayVerificationInputSize),
