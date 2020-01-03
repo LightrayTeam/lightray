@@ -92,7 +92,7 @@ impl Header {
             },
         };
         let descr = match part_map.get("descr") {
-            None => return Err(format!("no descr in header")),
+            None => return Err("no descr in header".to_string()),
             Some(descr) => {
                 if descr.is_empty() {
                     return Err("empty descr".to_string());
