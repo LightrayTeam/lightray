@@ -13,3 +13,9 @@ impl fmt::Display for InternalTorchError {
 }
 
 impl Error for InternalTorchError {}
+
+impl From<String> for InternalTorchError {
+    fn from(internal_error: String) -> Self {
+        InternalTorchError { internal_error }
+    }
+}

@@ -2,6 +2,7 @@ use crate::lightray_torch::errors::InternalTorchError;
 use crate::lightray_torch::tensor::read_npy;
 use base64;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use tch::IValue;
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum SerializableIValue {
@@ -16,63 +17,77 @@ pub enum SerializableIValue {
     TensorNPYBase64(String),
 }
 
-impl From<&IValue> for SerializableIValue {
-    fn from(value: &IValue) -> Self {
+impl TryFrom<&IValue> for SerializableIValue {
+    type Error = String;
+    fn try_from(value: &IValue) -> Result<Self, Self::Error> {
         match value {
-            IValue::None => SerializableIValue::None,
-            IValue::Bool(bool_value) => SerializableIValue::Bool(*bool_value),
-            IValue::Int(int_value) => SerializableIValue::Int(*int_value),
-            IValue::Double(double_value) => SerializableIValue::Double(*double_value),
-            IValue::String(string_value) => SerializableIValue::Str(string_value.clone()),
-            IValue::Tuple(tuple_value) => SerializableIValue::Tuple(
-                tuple_value.iter().map(SerializableIValue::from).collect(),
-            ),
-            IValue::GenericList(tuple_value) => {
-                SerializableIValue::List(tuple_value.iter().map(SerializableIValue::from).collect())
-            }
-            IValue::DoubleList(doubles_value) => SerializableIValue::List(
+            IValue::None => Ok(SerializableIValue::None),
+            IValue::Bool(bool_value) => Ok(SerializableIValue::Bool(*bool_value)),
+            IValue::Int(int_value) => Ok(SerializableIValue::Int(*int_value)),
+            IValue::Double(double_value) => Ok(SerializableIValue::Double(*double_value)),
+            IValue::String(string_value) => Ok(SerializableIValue::Str(string_value.clone())),
+            IValue::Tuple(tuple_value) => Ok(SerializableIValue::Tuple(
+                tuple_value
+                    .iter()
+                    .map(SerializableIValue::try_from)
+                    .collect::<Result<Vec<SerializableIValue>, String>>()?,
+            )),
+            IValue::GenericList(tuple_value) => Ok(SerializableIValue::List(
+                tuple_value
+                    .iter()
+                    .map(SerializableIValue::try_from)
+                    .collect::<Result<Vec<SerializableIValue>, String>>()?,
+            )),
+            IValue::DoubleList(doubles_value) => Ok(SerializableIValue::List(
                 doubles_value
                     .iter()
                     .map(|x| SerializableIValue::Double(*x))
                     .collect(),
-            ),
-            IValue::IntList(ints_value) => SerializableIValue::List(
+            )),
+            IValue::IntList(ints_value) => Ok(SerializableIValue::List(
                 ints_value
                     .iter()
                     .map(|x| SerializableIValue::Int(*x))
                     .collect(),
-            ),
-            IValue::BoolList(ints_value) => SerializableIValue::List(
+            )),
+            IValue::BoolList(ints_value) => Ok(SerializableIValue::List(
                 ints_value
                     .iter()
                     .map(|x| SerializableIValue::Bool(*x))
                     .collect(),
-            ),
+            )),
             _ => unimplemented!(),
         }
     }
 }
-impl From<&SerializableIValue> for IValue {
-    fn from(value: &SerializableIValue) -> Self {
+impl TryFrom<&SerializableIValue> for IValue {
+    type Error = String;
+    fn try_from(value: &SerializableIValue) -> Result<Self, Self::Error> {
         match value {
-            SerializableIValue::None => IValue::None,
-            SerializableIValue::Bool(bool_value) => IValue::Bool(*bool_value),
-            SerializableIValue::Int(int_value) => IValue::Int(*int_value),
-            SerializableIValue::Double(double_value) => IValue::Double(*double_value),
-            SerializableIValue::Str(string_value) => IValue::String(string_value.clone()),
-            SerializableIValue::Tuple(tuple_value) => {
-                IValue::Tuple(tuple_value.iter().map(IValue::from).collect())
-            }
-            SerializableIValue::List(list_value) => {
-                IValue::GenericList(list_value.iter().map(IValue::from).collect())
-            }
+            SerializableIValue::None => Ok(IValue::None),
+            SerializableIValue::Bool(bool_value) => Ok(IValue::Bool(*bool_value)),
+            SerializableIValue::Int(int_value) => Ok(IValue::Int(*int_value)),
+            SerializableIValue::Double(double_value) => Ok(IValue::Double(*double_value)),
+            SerializableIValue::Str(string_value) => Ok(IValue::String(string_value.clone())),
+            SerializableIValue::Tuple(tuple_value) => Ok(IValue::Tuple(
+                tuple_value
+                    .iter()
+                    .map(IValue::try_from)
+                    .collect::<Result<Vec<IValue>, String>>()?,
+            )),
+            SerializableIValue::List(list_value) => Ok(IValue::GenericList(
+                list_value
+                    .iter()
+                    .map(IValue::try_from)
+                    .collect::<Result<Vec<IValue>, String>>()?,
+            )),
             SerializableIValue::Optional(optional) => match &optional {
-                Option::None => IValue::None,
-                Option::Some(x) => IValue::from(&**x),
+                Option::None => Ok(IValue::None),
+                Option::Some(x) => Ok(IValue::try_from(&**x)?),
             },
             SerializableIValue::TensorNPYBase64(x) => {
                 // TODO: two unwraps that will panic, this should be a TryFrom
-                IValue::Tensor(read_npy(&base64::decode(x).unwrap()).unwrap())
+                Ok(IValue::Tensor(read_npy(&base64::decode(&x).unwrap())?))
             }
         }
     }
@@ -108,12 +123,12 @@ impl TorchScriptGraph {
         let model_inputs: Vec<IValue> = inputs
             .positional_arguments
             .iter()
-            .map(IValue::from)
-            .collect();
+            .map(IValue::try_from)
+            .collect::<Result<Vec<IValue>, String>>()?;
 
         let model_output = self.module.forward_is(&model_inputs);
         match model_output {
-            Result::Ok(true_model_output) => Ok(SerializableIValue::from(&true_model_output)),
+            Result::Ok(true_model_output) => Ok(SerializableIValue::try_from(&true_model_output)?),
             Result::Err(error) => Err(InternalTorchError {
                 internal_error: error.to_string(),
             }),
