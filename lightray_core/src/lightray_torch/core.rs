@@ -1,8 +1,8 @@
 use crate::lightray_torch::errors::InternalTorchError;
 use crate::lightray_torch::tensor::read_npy;
+use base64;
 use serde::{Deserialize, Serialize};
 use tch::IValue;
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum SerializableIValue {
     None,
@@ -13,7 +13,7 @@ pub enum SerializableIValue {
     Tuple(Vec<SerializableIValue>),
     List(Vec<SerializableIValue>),
     Optional(Option<Box<SerializableIValue>>),
-    TensorNPY(String),
+    TensorNPYBase64(String),
 }
 
 impl From<&IValue> for SerializableIValue {
@@ -70,7 +70,10 @@ impl From<&SerializableIValue> for IValue {
                 Option::None => IValue::None,
                 Option::Some(x) => IValue::from(&**x),
             },
-            SerializableIValue::TensorNPY(x) => IValue::Tensor(read_npy(&x).unwrap()),
+            SerializableIValue::TensorNPYBase64(x) => {
+                // TODO: two unwraps that will panic, this should be a TryFrom
+                IValue::Tensor(read_npy(&base64::decode(x).unwrap()).unwrap())
+            }
         }
     }
 }

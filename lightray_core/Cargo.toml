@@ -19,3 +19,4 @@ sys-info = "0.5.8"
 crossbeam-queue = "0.2"
 tokio = { version = "0.2.6", features = ["full"] }
 async-trait = "0.1.22"
+base64 = "0.11.0"

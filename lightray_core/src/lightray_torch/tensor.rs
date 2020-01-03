@@ -115,18 +115,19 @@ impl Header {
         let shape = match part_map.get("shape") {
             None => return Err("no shape in header".to_string()),
             Some(shape) => {
+                println!("shape_string: {}", shape);
                 let shape = shape.trim_matches(|c: char| c == '(' || c == ')' || c == ',');
                 if shape.is_empty() {
                     vec![]
                 } else {
-                    if let Err(error) = shape
+                    let shape_parse = shape
                         .split(',')
                         .map(|v| v.trim().parse::<i64>())
-                        .collect::<Result<Vec<_>, _>>()
-                    {
+                        .collect::<Result<Vec<_>, _>>();
+                    if let Err(error) = shape_parse {
                         return Err(error.to_string());
                     }
-                    vec![]
+                    shape_parse.unwrap()
                 }
             }
         };
@@ -136,10 +137,36 @@ impl Header {
             shape,
         })
     }
+    fn to_string(&self) -> Option<String> {
+        let fortran_order = if self.fortran_order { "True" } else { "False" };
+        let mut shape = self
+            .shape
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let descr = match self.descr {
+            Kind::Float => "f4",
+            Kind::Double => "f8",
+            Kind::Int => "i4",
+            Kind::Int64 => "i8",
+            Kind::Int16 => "i2",
+            Kind::Int8 => "i1",
+            Kind::Uint8 => "u1",
+            _ => return None,
+        };
+        if !shape.is_empty() {
+            shape.push(',')
+        }
+        Some(format!(
+            "{{'descr': '<{}', 'fortran_order': {}, 'shape': ({}), }}",
+            descr, fortran_order, shape
+        ))
+    }
 }
 
-pub fn read_npy(value: &String) -> Result<Tensor, String> {
-    let mut buf_reader = BufReader::new(value.as_bytes());
+pub fn read_npy(value: &[u8]) -> Result<Tensor, String> {
+    let mut buf_reader = BufReader::new(value);
     let header = read_header(&mut buf_reader)?;
     let header = Header::parse(&header)?;
     if header.fortran_order {
@@ -152,5 +179,47 @@ pub fn read_npy(value: &String) -> Result<Tensor, String> {
     match Tensor::f_of_data_size(&data, &header.shape, header.descr) {
         Result::Ok(tensor) => Ok(tensor),
         Result::Err(x) => Err(x.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Header;
+
+    #[test]
+    fn parse() {
+        let h = "{'descr': '<f8', 'fortran_order': False, 'shape': (128,), }";
+        assert_eq!(
+            Header::parse(h).unwrap(),
+            Header {
+                descr: tch::Kind::Double,
+                fortran_order: false,
+                shape: vec![128]
+            }
+        );
+        let h = "{'descr': '<f4', 'fortran_order': True, 'shape': (256,1,128), }";
+        let h = Header::parse(h).unwrap();
+        assert_eq!(
+            h,
+            Header {
+                descr: tch::Kind::Float,
+                fortran_order: true,
+                shape: vec![256, 1, 128]
+            }
+        );
+        assert_eq!(
+            h.to_string().unwrap(),
+            "{'descr': '<f4', 'fortran_order': True, 'shape': (256,1,128,), }"
+        );
+
+        let h = Header {
+            descr: tch::Kind::Int64,
+            fortran_order: false,
+            shape: vec![],
+        };
+        assert_eq!(
+            h.to_string().unwrap(),
+            "{'descr': '<i8', 'fortran_order': False, 'shape': (), }"
+        );
     }
 }
