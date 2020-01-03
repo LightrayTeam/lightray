@@ -85,10 +85,10 @@ impl TryFrom<&SerializableIValue> for IValue {
                 Option::None => Ok(IValue::None),
                 Option::Some(x) => Ok(IValue::try_from(&**x)?),
             },
-            SerializableIValue::TensorNPYBase64(x) => {
-                // TODO: two unwraps that will panic, this should be a TryFrom
-                Ok(IValue::Tensor(read_npy(&base64::decode(&x).unwrap())?))
-            }
+            SerializableIValue::TensorNPYBase64(x) => match &base64::decode(&x) {
+                Result::Ok(byte_array) => Ok(IValue::Tensor(read_npy(byte_array)?)),
+                Result::Err(y) => Err(y.to_string()),
+            },
         }
     }
 }

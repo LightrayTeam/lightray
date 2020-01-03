@@ -137,32 +137,6 @@ impl Header {
             shape,
         })
     }
-    fn to_string(&self) -> Option<String> {
-        let fortran_order = if self.fortran_order { "True" } else { "False" };
-        let mut shape = self
-            .shape
-            .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        let descr = match self.descr {
-            Kind::Float => "f4",
-            Kind::Double => "f8",
-            Kind::Int => "i4",
-            Kind::Int64 => "i8",
-            Kind::Int16 => "i2",
-            Kind::Int8 => "i1",
-            Kind::Uint8 => "u1",
-            _ => return None,
-        };
-        if !shape.is_empty() {
-            shape.push(',')
-        }
-        Some(format!(
-            "{{'descr': '<{}', 'fortran_order': {}, 'shape': ({}), }}",
-            descr, fortran_order, shape
-        ))
-    }
 }
 
 pub fn read_npy(value: &[u8]) -> Result<Tensor, String> {
@@ -185,7 +159,35 @@ pub fn read_npy(value: &[u8]) -> Result<Tensor, String> {
 #[cfg(test)]
 mod tests {
     use super::Header;
-
+    use tch::Kind;
+    impl Header {
+        fn to_string(&self) -> Option<String> {
+            let fortran_order = if self.fortran_order { "True" } else { "False" };
+            let mut shape = self
+                .shape
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            let descr = match self.descr {
+                Kind::Float => "f4",
+                Kind::Double => "f8",
+                Kind::Int => "i4",
+                Kind::Int64 => "i8",
+                Kind::Int16 => "i2",
+                Kind::Int8 => "i1",
+                Kind::Uint8 => "u1",
+                _ => return None,
+            };
+            if !shape.is_empty() {
+                shape.push(',')
+            }
+            Some(format!(
+                "{{'descr': '<{}', 'fortran_order': {}, 'shape': ({}), }}",
+                descr, fortran_order, shape
+            ))
+        }
+    }
     #[test]
     fn parse() {
         let h = "{'descr': '<f8', 'fortran_order': False, 'shape': (128,), }";

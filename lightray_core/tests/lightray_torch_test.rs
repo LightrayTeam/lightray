@@ -1,7 +1,7 @@
 use lightray_core::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
+use std::convert::TryFrom;
 use std::fs::read_to_string;
 use tch::{CModule, IValue};
-
 static GENERIC_TEXT_BASED_MODEL: &'static str =
     "tests/torchscript_models/generic_text_based_model.pt";
 static NPY_VECTOR_3: &'static str = "tests/torchscript_models/single_vector_numpy.npy";
@@ -42,7 +42,7 @@ fn torchscript_generic_text_based_model() {
 fn tensor_serialization_vector() {
     let value: String = read_to_string(NPY_VECTOR_3).unwrap();
     let s_tensor = SerializableIValue::TensorNPYBase64(value);
-    let tensor_ivalue: IValue = IValue::from(&s_tensor);
+    let tensor_ivalue: IValue = IValue::try_from(&s_tensor).unwrap();
     match tensor_ivalue {
         IValue::Tensor(tensor_value) => {
             assert_eq!(tensor_value.size(), &[3]);
@@ -55,7 +55,7 @@ fn tensor_serialization_vector() {
 fn tensor_serialization_matrix() {
     let value: String = read_to_string(NPY_MATRIX_3X5).unwrap();
     let s_tensor = SerializableIValue::TensorNPYBase64(value);
-    let tensor_ivalue: IValue = IValue::from(&s_tensor);
+    let tensor_ivalue: IValue = IValue::try_from(&s_tensor).unwrap();
     match tensor_ivalue {
         IValue::Tensor(tensor_value) => {
             assert_eq!(tensor_value.size(), &[3, 5]);
@@ -68,7 +68,7 @@ fn tensor_serialization_matrix() {
 fn tensor_serialization_tensor3() {
     let value: String = read_to_string(NPY_TENSOR_3X5X7).unwrap();
     let s_tensor = SerializableIValue::TensorNPYBase64(value);
-    let tensor_ivalue: IValue = IValue::from(&s_tensor);
+    let tensor_ivalue: IValue = IValue::try_from(&s_tensor).unwrap();
     match tensor_ivalue {
         IValue::Tensor(tensor_value) => {
             assert_eq!(tensor_value.size(), &[3, 5, 7]);
@@ -81,7 +81,7 @@ fn tensor_serialization_tensor3() {
 fn tensor_serialization_tensor4() {
     let value: String = read_to_string(NPY_TENSOR_3X5X7X9).unwrap();
     let s_tensor = SerializableIValue::TensorNPYBase64(value);
-    let tensor_ivalue: IValue = IValue::from(&s_tensor);
+    let tensor_ivalue: IValue = IValue::try_from(&s_tensor).unwrap();
     match tensor_ivalue {
         IValue::Tensor(tensor_value) => {
             assert_eq!(tensor_value.size(), &[3, 5, 7, 9]);
