@@ -5,10 +5,11 @@ use crate::lightray_executor::semantics::LightrayModelSemantics;
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub struct LightrayModelId {
-    pub model_id: u64,
+    pub model_id: Uuid,
     pub model_version: u16,
 }
 pub struct LightrayModel {

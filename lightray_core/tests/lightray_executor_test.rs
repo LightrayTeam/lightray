@@ -9,6 +9,7 @@ use lightray_core::lightray_executor::{
 };
 use lightray_core::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
 use tch::CModule;
+use uuid::Uuid;
 
 static GENERIC_TEXT_BASED_MODEL: &'static str =
     "tests/torchscript_models/generic_text_based_model.pt";
@@ -46,7 +47,7 @@ fn generic_text_based_model() -> LightrayModel {
         module: CModule::load(GENERIC_TEXT_BASED_MODEL).unwrap(),
     };
     let lightray_id = LightrayModelId {
-        model_id: 1234,
+        model_id: Uuid::new_v4(),
         model_version: 0,
     };
 

@@ -1,20 +1,40 @@
-use actix_web::{web, App, HttpServer, Responder};
-use listenfd::ListenFd;
+use actix_web::{web, App, HttpServer};
 
-fn index() -> impl Responder {
-    "Hello World!"
-}
+use lightray::api::{model_controller, static_files_handler};
+use lightray_core::lightray_executor::executor::{
+    InMemorySimpleLightrayExecutor,
+};
 
-
-fn main() {
-    let mut listenfd = ListenFd::from_env();
-    let mut server = HttpServer::new(|| App::new().route("/", web::get().to(index)));
-
-    server = if let Some(l) = listenfd.take_tcp_listener(0).unwrap() {
-        server.listen(l).unwrap()
-    } else {
-        server.bind("127.0.0.1:5000").unwrap()
-    };
-
-    server.run().unwrap();
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    std::env::set_var(
+        "RUST_LOG",
+        "lightray=debug,actix_web=info,actix_server=info",
+    );
+    HttpServer::new(move || {
+        App::new()
+            .data(InMemorySimpleLightrayExecutor::new())
+            .service(
+                web::resource("/")
+                    .route(web::get().to(static_files_handler::index))
+            )
+            .service(
+                web::scope("/api")
+                    .service(
+                        web::resource("/model")
+                            .route(web::post().to(model_controller::upload_model))
+                    )
+                    .service(
+                        web::resource("/model/{model_id}/version/{model_version}")
+                            .route(web::delete().to(model_controller::delete_model))
+                    )
+                    .service(
+                        web::resource("/model/{model_id}/version/{model_version}")
+                            .route(web::post().to(model_controller::execute_model))
+                    )
+            )
+    })
+    .bind("127.0.0.1:5000")?
+    .run()
+    .await
 }

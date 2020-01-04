@@ -5,11 +5,13 @@ use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
 use std::time::{Instant, SystemTime};
+
+use serde::{Deserialize, Serialize};
 
 pub type LightrayExecutorResult = Result<LightrayExecutedExample, LightrayModelExecutionError>;
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LightrayExecutedExample {
     pub execution_statistic: LightrayModelExecutionStatistic,
     pub execution_result: SerializableIValue,
@@ -79,6 +81,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         }
         Err(LightrayModelExecutionError::MissingModel)
     }
+    
     fn register_model(
         &self,
         model: LightrayModel,
@@ -92,6 +95,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
             .insert(model.id, Arc::new(model));
         Ok(model_id_clone)
     }
+
     fn delete_model(
         &self,
         model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
