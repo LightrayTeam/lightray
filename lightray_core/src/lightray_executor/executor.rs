@@ -83,9 +83,6 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         &self,
         model: LightrayModel,
     ) -> Result<LightrayModelId, LightrayRegistrationError> {
-        if let Err(x) = model.verify() {
-            return Err(LightrayRegistrationError::LightrayModelVerificationError(x));
-        }
         let model_id_clone = model.id;
         self.in_memory_mapping
             .lock()?
