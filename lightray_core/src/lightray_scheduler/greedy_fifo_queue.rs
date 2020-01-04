@@ -6,6 +6,7 @@ use crate::lightray_scheduler::statistics::SchedulerStatistics;
 use crate::lightray_torch::core::TorchScriptInput;
 use async_trait::async_trait;
 use crossbeam_queue::SegQueue;
+use std::thread;
 use std::time::{Instant, SystemTime};
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 pub struct ChannelBasedWork {
@@ -79,6 +80,10 @@ impl LightrayWorkQueue for LightrayFIFOWorkQueue {
             if let Ok(value) = self.worker_queue.pop() {
                 let executed_value = (self.worker_function)(&value.payload, &value.model_id);
                 let _x = value.sender.send(executed_value);
+            } else {
+                // Otherwise, this will be an incredibly tight loop which might end up taking a whole core.
+                // To stop this from happening we yield the thread when the queue is empty.
+                thread::yield_now();
             }
         }
     }
