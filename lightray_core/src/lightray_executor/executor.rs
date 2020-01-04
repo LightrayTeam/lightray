@@ -23,7 +23,7 @@ pub trait LightrayExecutor {
         model_id: &LightrayModelId,
         example: &TorchScriptInput,
         do_verification: bool,
-    ) -> Result<LightrayExecutedExample, LightrayModelExecutionError>;
+    ) -> LightrayExecutorResult;
 
     fn register_model(
         &self,

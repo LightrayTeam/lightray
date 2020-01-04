@@ -1,4 +1,4 @@
-use crate::lightray_executor::executor::LightrayExecutorResult;
+use crate::lightray_executor::executor::{LightrayExecutor, LightrayExecutorResult};
 use crate::lightray_executor::model::LightrayModelId;
 use crate::lightray_scheduler::errors::LightraySchedulerError;
 use crate::lightray_scheduler::statistics::SchedulerStatistics;
@@ -11,11 +11,12 @@ pub struct LightrayScheduledExecutionResult {
     pub scheduler_metrics: SchedulerStatistics,
 }
 #[async_trait(?Send)]
-pub trait LightrayWorkQueue {
+pub trait LightrayWorkQueue<T: LightrayExecutor> {
     async fn enqueue(
         &mut self,
         payload: TorchScriptInput,
         model_id: LightrayModelId,
     ) -> LightrayScheduledExecutionResult;
     fn worker_loop(&mut self);
+    fn get_executor(&self) -> &T;
 }

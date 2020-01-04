@@ -1,4 +1,4 @@
-use crate::lightray_executor::executor::LightrayExecutorResult;
+use crate::lightray_executor::executor::{LightrayExecutor, LightrayExecutorResult};
 use crate::lightray_executor::model::LightrayModelId;
 use crate::lightray_scheduler::errors::LightraySchedulerError;
 use crate::lightray_scheduler::queue::{LightrayScheduledExecutionResult, LightrayWorkQueue};
@@ -14,24 +14,22 @@ pub struct ChannelBasedWork {
     model_id: LightrayModelId,
     sender: Sender<LightrayExecutorResult>,
 }
-pub struct LightrayFIFOWorkQueue {
+pub struct LightrayFIFOWorkQueue<T: LightrayExecutor> {
     worker_queue: SegQueue<ChannelBasedWork>,
-    worker_function: fn(&TorchScriptInput, model_id: &LightrayModelId) -> LightrayExecutorResult,
+    worker_executor: T,
 }
 
-impl LightrayFIFOWorkQueue {
-    pub fn new(
-        worker_function: fn(&TorchScriptInput, &LightrayModelId) -> LightrayExecutorResult,
-    ) -> LightrayFIFOWorkQueue {
-        LightrayFIFOWorkQueue {
+impl<T: LightrayExecutor> LightrayFIFOWorkQueue<T> {
+    pub fn new(worker_executor: T) -> LightrayFIFOWorkQueue<T> {
+        LightrayFIFOWorkQueue::<T> {
             worker_queue: SegQueue::new(),
-            worker_function,
+            worker_executor,
         }
     }
 }
 
 #[async_trait(?Send)]
-impl LightrayWorkQueue for LightrayFIFOWorkQueue {
+impl<T: LightrayExecutor> LightrayWorkQueue<T> for LightrayFIFOWorkQueue<T> {
     async fn enqueue(
         &mut self,
         payload: TorchScriptInput,
@@ -78,7 +76,10 @@ impl LightrayWorkQueue for LightrayFIFOWorkQueue {
     fn worker_loop(&mut self) {
         loop {
             if let Ok(value) = self.worker_queue.pop() {
-                let executed_value = (self.worker_function)(&value.payload, &value.model_id);
+                // TODO: true for semantic checking should be a parameter
+                let executed_value =
+                    self.worker_executor
+                        .execute(&value.model_id, &value.payload, true);
                 let _x = value.sender.send(executed_value);
             } else {
                 // Otherwise, this will be an incredibly tight loop which might end up taking a whole core.
@@ -86,5 +87,8 @@ impl LightrayWorkQueue for LightrayFIFOWorkQueue {
                 thread::yield_now();
             }
         }
+    }
+    fn get_executor(&self) -> &T {
+        &self.worker_executor
     }
 }
