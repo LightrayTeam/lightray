@@ -78,7 +78,7 @@ fn lightray_generic_text_based_model() {
 }
 #[test]
 fn simple_executor_generic_text_based_model() {
-    let mut executor = InMemorySimpleLightrayExecutor::new();
+    let executor = InMemorySimpleLightrayExecutor::new();
     let lightray_model = generic_text_based_model();
 
     let register_result = executor.register_model(lightray_model);
@@ -111,7 +111,7 @@ fn simple_executor_generic_text_based_model() {
 
 #[test]
 fn text_simple_executor_generic_text_based_model() {
-    let mut executor = InMemorySimpleLightrayExecutor::new();
+    let executor = InMemorySimpleLightrayExecutor::new();
     let register_result = executor.register_model(generic_text_based_model());
     let model_input =
         serde_json::from_str::<TorchScriptInput>(&GENERIC_TEXT_BASED_MODEL_INPUT).unwrap();
