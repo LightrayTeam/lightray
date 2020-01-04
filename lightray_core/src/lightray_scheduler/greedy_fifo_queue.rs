@@ -17,13 +17,15 @@ pub struct ChannelBasedWork {
 pub struct LightrayFIFOWorkQueue<T: LightrayExecutor> {
     worker_queue: SegQueue<ChannelBasedWork>,
     worker_executor: T,
+    verify_model_input: bool,
 }
 
 impl<T: LightrayExecutor> LightrayFIFOWorkQueue<T> {
-    pub fn new(worker_executor: T) -> LightrayFIFOWorkQueue<T> {
+    pub fn new(worker_executor: T, verify_model_input: bool) -> LightrayFIFOWorkQueue<T> {
         LightrayFIFOWorkQueue::<T> {
             worker_queue: SegQueue::new(),
             worker_executor,
+            verify_model_input,
         }
     }
 }
@@ -76,10 +78,11 @@ impl<T: LightrayExecutor> LightrayWorkQueue<T> for LightrayFIFOWorkQueue<T> {
     fn worker_loop(&mut self) {
         loop {
             if let Ok(value) = self.worker_queue.pop() {
-                // TODO: true for semantic checking should be a parameter
-                let executed_value =
-                    self.worker_executor
-                        .execute(&value.model_id, &value.payload, true);
+                let executed_value = self.worker_executor.execute(
+                    &value.model_id,
+                    &value.payload,
+                    self.verify_model_input,
+                );
                 let _x = value.sender.send(executed_value);
             } else {
                 // Otherwise, this will be an incredibly tight loop which might end up taking a whole core.
