@@ -30,10 +30,7 @@ pub trait LightrayExecutor {
         model: LightrayModel,
     ) -> Result<LightrayModelId, LightrayRegistrationError>;
 
-    fn delete_model(
-        &self,
-        model_id: LightrayModelId
-    ) -> Result<(), LightrayRegistrationError>;
+    fn delete_model(&self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError>;
 }
 
 #[derive(Default)]
@@ -81,7 +78,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         }
         Err(LightrayModelExecutionError::MissingModel)
     }
-    
+
     fn register_model(
         &self,
         model: LightrayModel,
@@ -96,9 +93,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         Ok(model_id_clone)
     }
 
-    fn delete_model(
-        &self,
-        model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
+    fn delete_model(&self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
         match self.in_memory_mapping.lock()?.remove(&model_id) {
             None => Err(LightrayRegistrationError::MissingModel),
             _ => Ok(()),

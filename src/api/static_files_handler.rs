@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse};
+use actix_web::HttpResponse;
 
 pub fn index() -> HttpResponse {
     let html = r#"<html>

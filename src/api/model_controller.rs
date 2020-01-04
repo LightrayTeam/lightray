@@ -1,24 +1,24 @@
 use lightray_core::lightray_torch::TorchScriptGraph;
-use std::io::Write;
 use std::fs;
+use std::io::Write;
 
-use actix_web::{web, HttpResponse, Error, error::BlockingError};
-use actix_multipart::{Multipart};
+use actix_multipart::Multipart;
+use actix_web::{error::BlockingError, web, Error, HttpResponse};
 use futures::StreamExt;
 use tch::CModule;
 use uuid::Uuid;
 
 use lightray_core::lightray_executor::{
-    LightrayModel, LightrayModelId, LightrayModelSemantics, LightrayIValueSemantic
+    LightrayIValueSemantic, LightrayModel, LightrayModelId, LightrayModelSemantics,
 };
 
 use lightray_core::lightray_executor::executor::{
-    InMemorySimpleLightrayExecutor, LightrayExecutor
+    InMemorySimpleLightrayExecutor, LightrayExecutor,
 };
 
-use lightray_core::lightray_executor::errors::{LightrayRegistrationError};
+use lightray_core::lightray_executor::errors::LightrayRegistrationError;
 
-use lightray_core::lightray_torch::{TorchScriptInput};
+use lightray_core::lightray_torch::TorchScriptInput;
 
 use crate::api::errors::ServiceError;
 
@@ -54,14 +54,15 @@ pub async fn upload_model(
 
 pub async fn delete_model(
     executor: web::Data<InMemorySimpleLightrayExecutor>,
-    params: web::Path<LightrayModelId>
+    params: web::Path<LightrayModelId>,
 ) -> Result<HttpResponse, ServiceError> {
-    let model_id = LightrayModelId { model_id: params.model_id, model_version: params.model_version };
+    let model_id = LightrayModelId {
+        model_id: params.model_id,
+        model_version: params.model_version,
+    };
 
     match web::block(move || executor.delete_model(model_id)).await {
-        Ok(()) => {
-            Ok(HttpResponse::Ok().finish())
-        }
+        Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError),
             BlockingError::Error(lightray_reg_err) => Err(lightray_reg_err.into()),
@@ -74,12 +75,13 @@ pub async fn execute_model(
     params: web::Path<LightrayModelId>,
     input: web::Json<TorchScriptInput>,
 ) -> Result<HttpResponse, ServiceError> {
-    let model_id = LightrayModelId { model_id: params.model_id, model_version: params.model_version };
+    let model_id = LightrayModelId {
+        model_id: params.model_id,
+        model_version: params.model_version,
+    };
 
     match web::block(move || executor.execute(&model_id, &input, false)).await {
-        Ok(stats) => {
-            Ok(HttpResponse::Ok().json(stats))
-        }
+        Ok(stats) => Ok(HttpResponse::Ok().json(stats)),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError),
             BlockingError::Error(lightray_exec_err) => Err(lightray_exec_err.into()),
@@ -111,15 +113,16 @@ async fn register_model(
                 LightrayIValueSemantic::ExactValueMatch,
             ],
         },
-    ).unwrap();
+    )
+    .unwrap();
 
     match web::block(move || executor.register_model(lightray_model)).await {
-        Ok(model_id) => {
-            Ok(HttpResponse::Ok().json(model_id))
-        }
+        Ok(model_id) => Ok(HttpResponse::Ok().json(model_id)),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError.into()),
-            BlockingError::Error(lightray_reg_err) => Err(Into::<ServiceError>::into(lightray_reg_err).into()),
-        }
+            BlockingError::Error(lightray_reg_err) => {
+                Err(Into::<ServiceError>::into(lightray_reg_err).into())
+            }
+        },
     }
 }

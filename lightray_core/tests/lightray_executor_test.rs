@@ -56,7 +56,8 @@ fn generic_text_based_model() -> LightrayModel {
         graph,
         vec![generic_text_based_model_input()],
         generic_text_based_model_semantics(),
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 #[test]

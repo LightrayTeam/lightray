@@ -47,8 +47,7 @@ impl LightrayModelSemantics {
             }
             match &self.positional_semantics[i] {
                 LightrayIValueSemantic::ExactValueMatch => {
-                    if model_baseline.positional_arguments[i]
-                        != model_input.positional_arguments[i]
+                    if model_baseline.positional_arguments[i] != model_input.positional_arguments[i]
                     {
                         return Err(
                             LightrayModelInputSemanticError::LightrayVerificationInputDoesNotEqual(
