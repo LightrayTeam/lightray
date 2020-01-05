@@ -3,11 +3,11 @@ use crate::lightray_executor::model::{LightrayModel, LightrayModelId};
 use crate::lightray_executor::statistics::LightrayModelExecutionStatistic;
 use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::mem::drop;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime};
-
-use serde::{Deserialize, Serialize};
 
 pub type LightrayExecutorResult = Result<LightrayExecutedExample, LightrayModelExecutionError>;
 
@@ -53,30 +53,34 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         example: &TorchScriptInput,
         do_semantic_verification: bool,
     ) -> LightrayExecutorResult {
-        if let Some(x) = self.in_memory_mapping.lock().unwrap().get(&model_id) {
-            let system_start_time = SystemTime::now();
-            let instant_start_time = Instant::now();
-            let model_output = x.execute(&example, do_semantic_verification);
-            let instant_end_time = Instant::now();
-            let system_end_time = SystemTime::now();
+        let mutex_guard = self.in_memory_mapping.lock()?;
+        let model = mutex_guard
+            .get(&model_id)
+            .ok_or(LightrayModelExecutionError::MissingModel)?
+            .clone();
+        drop(mutex_guard);
 
-            match model_output {
-                Ok(output_value) => {
-                    return Ok(LightrayExecutedExample {
-                        execution_statistic: LightrayModelExecutionStatistic {
-                            elapsed_execution_time: instant_end_time - instant_start_time,
-                            start_execution_time: system_start_time,
-                            end_execution_time: system_end_time,
-                        },
-                        execution_result: output_value,
-                    })
-                }
-                Err(error) => {
-                    return Err(error);
-                }
+        let system_start_time = SystemTime::now();
+        let instant_start_time = Instant::now();
+        let model_output = model.execute(&example, do_semantic_verification);
+        let instant_end_time = Instant::now();
+        let system_end_time = SystemTime::now();
+
+        match model_output {
+            Ok(output_value) => {
+                return Ok(LightrayExecutedExample {
+                    execution_statistic: LightrayModelExecutionStatistic {
+                        elapsed_execution_time: instant_end_time - instant_start_time,
+                        start_execution_time: system_start_time,
+                        end_execution_time: system_end_time,
+                    },
+                    execution_result: output_value,
+                })
+            }
+            Err(error) => {
+                return Err(error);
             }
         }
-        Err(LightrayModelExecutionError::MissingModel)
     }
 
     fn register_model(

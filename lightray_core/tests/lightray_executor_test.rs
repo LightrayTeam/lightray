@@ -4,12 +4,7 @@ use lightray_core::lightray_executor::errors::{
 use lightray_core::lightray_executor::executor::{
     InMemorySimpleLightrayExecutor, LightrayExecutedExample, LightrayExecutor,
 };
-use lightray_core::lightray_executor::{
-    LightrayIValueSemantic, LightrayModel, LightrayModelId, LightrayModelSemantics,
-};
-use lightray_core::lightray_torch::{SerializableIValue, TorchScriptGraph, TorchScriptInput};
-use tch::CModule;
-use uuid::Uuid;
+use lightray_core::lightray_torch::{SerializableIValue, TorchScriptInput};
 
 static GENERIC_TEXT_BASED_MODEL: &'static str =
     "tests/torchscript_models/generic_text_based_model.pt";
@@ -18,51 +13,11 @@ static GENERIC_TEXT_BASED_MODEL_INPUT: &'static str = r#"{"positional_arguments"
  {"Int":3},
  {"Int":3}]}"#;
 
-fn generic_text_based_model_input() -> TorchScriptInput {
-    TorchScriptInput {
-        positional_arguments: vec![
-            SerializableIValue::List(vec![
-                SerializableIValue::Str("<bos>".to_string()),
-                SerializableIValue::Str("call".to_string()),
-                SerializableIValue::Str("mom".to_string()),
-                SerializableIValue::Str("<eos>".to_string()),
-            ]),
-            SerializableIValue::Int(3),
-            SerializableIValue::Int(3),
-        ],
-    }
-}
-fn generic_text_based_model_semantics() -> LightrayModelSemantics {
-    LightrayModelSemantics {
-        positional_semantics: vec![
-            LightrayIValueSemantic::TypeMatch,
-            LightrayIValueSemantic::ExactValueMatch,
-            LightrayIValueSemantic::ExactValueMatch,
-        ],
-    }
-}
-fn generic_text_based_model() -> LightrayModel {
-    let graph = TorchScriptGraph {
-        batchable: false,
-        module: CModule::load(GENERIC_TEXT_BASED_MODEL).unwrap(),
-    };
-    let lightray_id = LightrayModelId {
-        model_id: Uuid::new_v4(),
-        model_version: 0,
-    };
-
-    LightrayModel::new(
-        lightray_id,
-        graph,
-        vec![generic_text_based_model_input()],
-        generic_text_based_model_semantics(),
-    )
-    .unwrap()
-}
+mod common;
 
 #[test]
 fn lightray_generic_text_based_model() {
-    let lightray_model = generic_text_based_model();
+    let lightray_model = common::generic_text_based_model();
     let expected_output = SerializableIValue::List(vec![
         SerializableIValue::Str("<bos>".to_string()),
         SerializableIValue::Str("call".to_string()),
@@ -73,7 +28,7 @@ fn lightray_generic_text_based_model() {
     assert!(!lightray_model.warmup_jit(100).is_err());
     assert_eq!(
         lightray_model
-            .execute(&generic_text_based_model_input(), false)
+            .execute(&common::generic_text_based_model_input(), false)
             .unwrap(),
         expected_output
     )
@@ -81,14 +36,14 @@ fn lightray_generic_text_based_model() {
 #[test]
 fn simple_executor_generic_text_based_model() {
     let executor = InMemorySimpleLightrayExecutor::new();
-    let lightray_model = generic_text_based_model();
+    let lightray_model = common::generic_text_based_model();
 
     let register_result = executor.register_model(lightray_model);
 
     assert!(register_result.is_ok());
     let model_id = register_result.unwrap();
 
-    let output_exec = executor.execute(&model_id, &generic_text_based_model_input(), false);
+    let output_exec = executor.execute(&model_id, &common::generic_text_based_model_input(), false);
     assert!(output_exec.is_ok());
 
     let raw_output: LightrayExecutedExample = output_exec.unwrap();
@@ -114,9 +69,9 @@ fn simple_executor_generic_text_based_model() {
 #[test]
 fn text_simple_executor_generic_text_based_model() {
     let executor = InMemorySimpleLightrayExecutor::new();
-    let register_result = executor.register_model(generic_text_based_model());
+    let register_result = executor.register_model(common::generic_text_based_model());
     let model_input =
-        serde_json::from_str::<TorchScriptInput>(&GENERIC_TEXT_BASED_MODEL_INPUT).unwrap();
+        serde_json::from_str::<TorchScriptInput>(&common::GENERIC_TEXT_BASED_MODEL_INPUT).unwrap();
     let raw_output: LightrayExecutedExample = executor
         .execute(&register_result.unwrap(), &model_input, false)
         .unwrap();
@@ -133,7 +88,7 @@ fn text_simple_executor_generic_text_based_model() {
 
 #[test]
 fn test_lightray_model_semantics() {
-    let model = generic_text_based_model();
+    let model = common::generic_text_based_model();
 
     let wrong_first_type_input = TorchScriptInput {
         positional_arguments: vec![

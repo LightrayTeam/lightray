@@ -94,6 +94,7 @@ pub enum LightrayModelExecutionError {
     InternalTorchScriptError(InternalTorchError),
     IncorrectTypeSignature,
     MissingModel,
+    PoisonError,
 }
 
 #[derive(Debug)]
@@ -106,6 +107,11 @@ pub enum LightrayRegistrationError {
 impl<T> From<PoisonError<T>> for LightrayRegistrationError {
     fn from(_: PoisonError<T>) -> LightrayRegistrationError {
         LightrayRegistrationError::PoisonError
+    }
+}
+impl<T> From<PoisonError<T>> for LightrayModelExecutionError {
+    fn from(_: PoisonError<T>) -> LightrayModelExecutionError {
+        LightrayModelExecutionError::PoisonError
     }
 }
 #[derive(Debug)]
