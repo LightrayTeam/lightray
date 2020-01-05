@@ -10,9 +10,13 @@ async fn main() -> std::io::Result<()> {
         "RUST_LOG",
         "lightray=debug,actix_web=info,actix_server=info",
     );
+
     HttpServer::new(move || {
         App::new()
-            .data(InMemorySimpleLightrayExecutor::new())
+            .data(LightrayFIFOWorkQueue::new(
+                InMemorySimpleLightrayExecutor::new(),
+                false,
+            ))
             .service(web::resource("/").route(web::get().to(static_files_handler::index)))
             .service(
                 web::scope("/api")

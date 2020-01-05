@@ -17,13 +17,14 @@ use lightray_core::lightray_executor::executor::{
 };
 
 use lightray_core::lightray_executor::errors::LightrayRegistrationError;
-
+use lightray_core::lightray_scheduler::greedy_fifo_queue::LightrayFIFOWorkQueue;
+use lightray_core::lightray_scheduler::queue::LightrayWorkQueue;
 use lightray_core::lightray_torch::TorchScriptInput;
 
 use crate::api::errors::ServiceError;
 
 pub async fn upload_model(
-    executor: web::Data<InMemorySimpleLightrayExecutor>,
+    queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
     mut c_module: Multipart,
 ) -> Result<HttpResponse, Error> {
     fs::create_dir_all("./model_store")?;
@@ -46,14 +47,14 @@ pub async fn upload_model(
     }
 
     if let Some(file) = filepath {
-        register_model(file, executor).await
+        register_model(file, queue).await
     } else {
         Err(Into::<ServiceError>::into(LightrayRegistrationError::MissingModel).into())
     }
 }
 
 pub async fn delete_model(
-    executor: web::Data<InMemorySimpleLightrayExecutor>,
+    queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
     params: web::Path<LightrayModelId>,
 ) -> Result<HttpResponse, ServiceError> {
     let model_id = LightrayModelId {
@@ -61,7 +62,7 @@ pub async fn delete_model(
         model_version: params.model_version,
     };
 
-    match web::block(move || executor.delete_model(model_id)).await {
+    match web::block(move || queue.get_executor().delete_model(model_id)).await {
         Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError),
@@ -71,7 +72,7 @@ pub async fn delete_model(
 }
 
 pub async fn execute_model(
-    executor: web::Data<InMemorySimpleLightrayExecutor>,
+    queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
     params: web::Path<LightrayModelId>,
     input: web::Json<TorchScriptInput>,
 ) -> Result<HttpResponse, ServiceError> {
@@ -80,7 +81,7 @@ pub async fn execute_model(
         model_version: params.model_version,
     };
 
-    match web::block(move || executor.execute(&model_id, &input, false)).await {
+    match web::block(move || queue.get_executor().execute(&model_id, &input, false)).await {
         Ok(stats) => Ok(HttpResponse::Ok().json(stats)),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError),
@@ -91,7 +92,7 @@ pub async fn execute_model(
 
 async fn register_model(
     file: String,
-    executor: web::Data<InMemorySimpleLightrayExecutor>,
+    queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
 ) -> Result<HttpResponse, Error> {
     let graph = TorchScriptGraph {
         batchable: false,
@@ -116,7 +117,7 @@ async fn register_model(
     )
     .unwrap();
 
-    match web::block(move || executor.register_model(lightray_model)).await {
+    match web::block(move || queue.get_executor().register_model(lightray_model)).await {
         Ok(model_id) => Ok(HttpResponse::Ok().json(model_id)),
         Err(err) => match err {
             BlockingError::Canceled => Err(ServiceError::InternalServerError.into()),
