@@ -53,12 +53,12 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         example: &TorchScriptInput,
         do_semantic_verification: bool,
     ) -> LightrayExecutorResult {
-        let mutex_guard = self.in_memory_mapping.read()?;
-        let model = mutex_guard
+        let read_guard = self.in_memory_mapping.read()?;
+        let model = read_guard
             .get(&model_id)
             .ok_or(LightrayModelExecutionError::MissingModel)?
             .clone();
-        drop(mutex_guard);
+        drop(read_guard);
 
         let system_start_time = SystemTime::now();
         let instant_start_time = Instant::now();
