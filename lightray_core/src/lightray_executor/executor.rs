@@ -6,7 +6,7 @@ use crate::lightray_torch::core::{SerializableIValue, TorchScriptInput};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::mem::drop;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::{Instant, SystemTime};
 
 pub type LightrayExecutorResult = Result<LightrayExecutedExample, LightrayModelExecutionError>;
@@ -35,13 +35,13 @@ pub trait LightrayExecutor {
 
 #[derive(Default)]
 pub struct InMemorySimpleLightrayExecutor {
-    in_memory_mapping: Arc<Mutex<HashMap<LightrayModelId, Arc<LightrayModel>>>>,
+    in_memory_mapping: Arc<RwLock<HashMap<LightrayModelId, Arc<LightrayModel>>>>,
 }
 
 impl InMemorySimpleLightrayExecutor {
     pub fn new() -> Self {
         Self {
-            in_memory_mapping: Arc::new(Mutex::new(HashMap::new())),
+            in_memory_mapping: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
@@ -53,7 +53,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         example: &TorchScriptInput,
         do_semantic_verification: bool,
     ) -> LightrayExecutorResult {
-        let mutex_guard = self.in_memory_mapping.lock()?;
+        let mutex_guard = self.in_memory_mapping.read()?;
         let model = mutex_guard
             .get(&model_id)
             .ok_or(LightrayModelExecutionError::MissingModel)?
@@ -89,13 +89,13 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
     ) -> Result<LightrayModelId, LightrayRegistrationError> {
         let model_id_clone = model.id;
         self.in_memory_mapping
-            .lock()?
+            .write()?
             .insert(model.id, Arc::new(model));
         Ok(model_id_clone)
     }
 
     fn delete_model(&self, model_id: LightrayModelId) -> Result<(), LightrayRegistrationError> {
-        match self.in_memory_mapping.lock()?.remove(&model_id) {
+        match self.in_memory_mapping.write()?.remove(&model_id) {
             None => Err(LightrayRegistrationError::MissingModel),
             _ => Ok(()),
         }
