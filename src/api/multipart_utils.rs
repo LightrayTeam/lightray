@@ -38,18 +38,7 @@ pub async fn read_multipart_file(field: &mut Field) -> Result<Bytes, Error> {
 
 pub async fn read_multipart_json<T: DeserializeOwned>(
     mut field: &mut Field,
-    generic_error: String,
 ) -> Result<T, Error> {
     let data = read_multipart_data(&mut field).await?;
-    let res = serde_json::from_slice::<T>(&data);
-    match res {
-        Ok(s) => {
-            Ok(s)
-        }
-        Err(json_error) => {
-            Err(
-                ServiceError::BadRequest(format!("{}: {}", generic_error, json_error)).into(),
-            )
-        }
-    }
+    return Ok(serde_json::from_slice::<T>(&data)?);
 }

@@ -2,7 +2,7 @@ use lightray_core::lightray_torch::TorchScriptGraph;
 use std::fs;
 use std::io::Write;
 
-use actix_multipart::Multipart;
+use actix_multipart::{Field, Multipart};
 use actix_web::{error::BlockingError, web, Error, HttpResponse};
 use futures::StreamExt;
 use tch::CModule;
@@ -36,48 +36,13 @@ pub async fn upload_model(
 
         match content_type.get_name() {
             Some("model_file") => {
-                let filename = content_type.get_filename();
-                match filename {
-                    Some("") => {
-                        return Err(
-                            ServiceError::BadRequest("no filename provided".to_string()).into()
-                        );
-                    }
-                    Some(file) => {
-                        filepath = Some(format!("./model_store/{}", file));
-                    }
-                    None => {
-                        return Err(
-                            ServiceError::BadRequest("no filename provided".to_string()).into()
-                        );
-                    }
-                }
-                let create_filepath = filepath.clone();
-                let mut f = web::block(|| std::fs::File::create(create_filepath.unwrap()))
-                    .await
-                    .unwrap();
-                while let Some(chunk) = field.next().await {
-                    let data = chunk.unwrap();
-                    f = web::block(move || f.write_all(&data).map(|_| f)).await?;
-                }
+                filepath = Some(save_model_file(&mut field, content_type.get_filename()).await?);
             }
             Some("samples") => {
-                samples = Some(
-                    read_multipart_json::<Vec<TorchScriptInput>>(
-                        &mut field,
-                        "samples json error".to_string(),
-                    )
-                    .await?,
-                );
+                samples = Some(get_samples(&mut field).await?);
             }
             Some("semantics") => {
-                semantics = Some(
-                    read_multipart_json::<LightrayModelSemantics>(
-                        &mut field,
-                        "semantics json error".to_string(),
-                    )
-                    .await?,
-                );
+                semantics = Some(get_model_semantics(&mut field).await?);
             }
             Some(other) => {
                 return Err(ServiceError::BadRequest(format!(
@@ -132,19 +97,79 @@ pub async fn execute_model(
     }
 }
 
+async fn get_samples(mut field: &mut Field) -> Result<Vec<TorchScriptInput>, Error> {
+    match read_multipart_json::<Vec<TorchScriptInput>>(
+        &mut field,
+    )
+    .await {
+        Ok(s) => {
+            Ok(s)
+        }
+        Err(json_error) => {
+            return Err(
+                ServiceError::BadRequest(format!("Model samples JSON deserialize error: {}", json_error)).into(),
+            );
+        }
+    }
+}
+
+async fn get_model_semantics(mut field: &mut Field) -> Result<LightrayModelSemantics, Error> {
+    match read_multipart_json::<LightrayModelSemantics>(
+        &mut field,
+    )
+    .await {
+        Ok(s) => {
+            Ok(s)
+        }
+        Err(json_error) => {
+            return Err(
+                ServiceError::BadRequest(format!("Model semantics JSON deserialize error: {}", json_error)).into(),
+            );
+        }
+    }
+}
+
+async fn save_model_file(field: &mut Field, filename: Option<&str>) -> Result<String, Error> {
+    let filepath: String;
+    match filename {
+        Some("") => {
+            return Err(
+                ServiceError::BadRequest("no filename provided".to_string()).into()
+            );
+        }
+        Some(file) => {
+            filepath = format!("./model_store/{}", file);
+        }
+        None => {
+            return Err(
+                ServiceError::BadRequest("no filename provided".to_string()).into()
+            );
+        }
+    }
+    let create_filepath = filepath.clone();
+    let mut f = web::block(|| std::fs::File::create(create_filepath))
+        .await
+        .unwrap();
+    while let Some(chunk) = field.next().await {
+        let data = chunk.unwrap();
+        f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+    }
+    Ok(filepath)
+}
+
 async fn register_model(
     file: Option<String>,
     samples: Option<Vec<TorchScriptInput>>,
     semantics: Option<LightrayModelSemantics>,
     queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
 ) -> Result<HttpResponse, Error> {
-    let input_file = file.ok_or::<Error>(
-        ServiceError::BadRequest(String::from("missing TorchScript file")).into(),
+    let input_file = file.ok_or_else(||
+        Into::<Error>::into(ServiceError::BadRequest(String::from("missing TorchScript file"))),
     )?;
     let input_samples = samples
-        .ok_or::<Error>(ServiceError::BadRequest(String::from("missing input samples")).into())?;
+        .ok_or_else(|| Into::<Error>::into(ServiceError::BadRequest(String::from("missing input samples"))))?;
     let input_semantics = semantics
-        .ok_or::<Error>(ServiceError::BadRequest(String::from("missing model semantics")).into())?;
+        .ok_or_else(|| Into::<Error>::into(ServiceError::BadRequest(String::from("missing model semantics"))))?;
 
     let graph = TorchScriptGraph {
         batchable: false,
