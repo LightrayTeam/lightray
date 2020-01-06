@@ -8,20 +8,18 @@ use futures::StreamExt;
 use tch::CModule;
 use uuid::Uuid;
 
-use lightray_core::lightray_executor::{
-    LightrayIValueSemantic, LightrayModel, LightrayModelId, LightrayModelSemantics,
-};
+use lightray_core::lightray_executor::{LightrayModel, LightrayModelId, LightrayModelSemantics};
 
 use lightray_core::lightray_executor::executor::{
     InMemorySimpleLightrayExecutor, LightrayExecutor,
 };
 
-use lightray_core::lightray_executor::errors::LightrayRegistrationError;
 use lightray_core::lightray_scheduler::greedy_fifo_queue::LightrayFIFOWorkQueue;
 use lightray_core::lightray_scheduler::queue::LightrayWorkQueue;
 use lightray_core::lightray_torch::TorchScriptInput;
 
 use crate::api::errors::ServiceError;
+use crate::api::multipart_utils::read_multipart_json;
 
 pub async fn upload_model(
     queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
@@ -29,28 +27,72 @@ pub async fn upload_model(
 ) -> Result<HttpResponse, Error> {
     fs::create_dir_all("./model_store")?;
     let mut filepath: Option<String> = None;
+    let mut samples: Option<Vec<TorchScriptInput>> = None;
+    let mut semantics: Option<LightrayModelSemantics> = None;
 
     while let Some(item) = c_module.next().await {
         let mut field = item?;
         let content_type = field.content_disposition().unwrap();
-        let filename = content_type.get_filename().unwrap();
-        let create_filepath = format!("./model_store/{}", filename);
-        filepath = Some(create_filepath.clone());
 
-        let mut f = web::block(|| std::fs::File::create(create_filepath))
-            .await
-            .unwrap();
-        while let Some(chunk) = field.next().await {
-            let data = chunk.unwrap();
-            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+        match content_type.get_name() {
+            Some("model_file") => {
+                let filename = content_type.get_filename();
+                match filename {
+                    Some("") => {
+                        return Err(
+                            ServiceError::BadRequest("no filename provided".to_string()).into()
+                        );
+                    }
+                    Some(file) => {
+                        filepath = Some(format!("./model_store/{}", file));
+                    }
+                    None => {
+                        return Err(
+                            ServiceError::BadRequest("no filename provided".to_string()).into()
+                        );
+                    }
+                }
+                let create_filepath = filepath.clone();
+                let mut f = web::block(|| std::fs::File::create(create_filepath.unwrap()))
+                    .await
+                    .unwrap();
+                while let Some(chunk) = field.next().await {
+                    let data = chunk.unwrap();
+                    f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+                }
+            }
+            Some("samples") => {
+                samples = Some(
+                    read_multipart_json::<Vec<TorchScriptInput>>(
+                        &mut field,
+                        "samples json error".to_string(),
+                    )
+                    .await?,
+                );
+            }
+            Some("semantics") => {
+                semantics = Some(
+                    read_multipart_json::<LightrayModelSemantics>(
+                        &mut field,
+                        "semantics json error".to_string(),
+                    )
+                    .await?,
+                );
+            }
+            Some(other) => {
+                return Err(ServiceError::BadRequest(format!(
+                    "unsupported formdata field: {}",
+                    other
+                ))
+                .into())
+            }
+            None => {
+                return Err(ServiceError::BadRequest("unspecified formdata field".to_string()).into())
+            }
         }
     }
 
-    if let Some(file) = filepath {
-        register_model(file, queue).await
-    } else {
-        Err(Into::<ServiceError>::into(LightrayRegistrationError::MissingModel).into())
-    }
+    register_model(filepath, samples, semantics, queue).await
 }
 
 pub async fn delete_model(
@@ -91,31 +133,30 @@ pub async fn execute_model(
 }
 
 async fn register_model(
-    file: String,
+    file: Option<String>,
+    samples: Option<Vec<TorchScriptInput>>,
+    semantics: Option<LightrayModelSemantics>,
     queue: web::Data<LightrayFIFOWorkQueue<InMemorySimpleLightrayExecutor>>,
 ) -> Result<HttpResponse, Error> {
+    let input_file = file.ok_or::<Error>(
+        ServiceError::BadRequest(String::from("missing TorchScript file")).into(),
+    )?;
+    let input_samples = samples
+        .ok_or::<Error>(ServiceError::BadRequest(String::from("missing input samples")).into())?;
+    let input_semantics = semantics
+        .ok_or::<Error>(ServiceError::BadRequest(String::from("missing model semantics")).into())?;
+
     let graph = TorchScriptGraph {
         batchable: false,
-        module: CModule::load(file).unwrap(),
+        module: CModule::load(input_file).unwrap(),
     };
     let lightray_id = LightrayModelId {
         model_id: Uuid::new_v4(),
         model_version: 0,
     };
 
-    let lightray_model = LightrayModel::new(
-        lightray_id,
-        graph,
-        vec![],
-        LightrayModelSemantics {
-            positional_semantics: vec![
-                LightrayIValueSemantic::TypeMatch,
-                LightrayIValueSemantic::ExactValueMatch,
-                LightrayIValueSemantic::ExactValueMatch,
-            ],
-        },
-    )
-    .unwrap();
+    let lightray_model =
+        LightrayModel::new(lightray_id, graph, input_samples, input_semantics).unwrap();
 
     match web::block(move || queue.get_executor().register_model(lightray_model)).await {
         Ok(model_id) => Ok(HttpResponse::Ok().json(model_id)),

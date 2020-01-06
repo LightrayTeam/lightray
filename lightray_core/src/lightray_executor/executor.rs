@@ -68,7 +68,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
 
         match model_output {
             Ok(output_value) => {
-                return Ok(LightrayExecutedExample {
+                Ok(LightrayExecutedExample {
                     execution_statistic: LightrayModelExecutionStatistic {
                         elapsed_execution_time: instant_end_time - instant_start_time,
                         start_execution_time: system_start_time,
@@ -78,7 +78,7 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
                 })
             }
             Err(error) => {
-                return Err(error);
+                Err(error)
             }
         }
     }
