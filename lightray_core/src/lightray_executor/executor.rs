@@ -67,19 +67,15 @@ impl LightrayExecutor for InMemorySimpleLightrayExecutor {
         let system_end_time = SystemTime::now();
 
         match model_output {
-            Ok(output_value) => {
-                Ok(LightrayExecutedExample {
-                    execution_statistic: LightrayModelExecutionStatistic {
-                        elapsed_execution_time: instant_end_time - instant_start_time,
-                        start_execution_time: system_start_time,
-                        end_execution_time: system_end_time,
-                    },
-                    execution_result: output_value,
-                })
-            }
-            Err(error) => {
-                Err(error)
-            }
+            Ok(output_value) => Ok(LightrayExecutedExample {
+                execution_statistic: LightrayModelExecutionStatistic {
+                    elapsed_execution_time: instant_end_time - instant_start_time,
+                    start_execution_time: system_start_time,
+                    end_execution_time: system_end_time,
+                },
+                execution_result: output_value,
+            }),
+            Err(error) => Err(error),
         }
     }
 
